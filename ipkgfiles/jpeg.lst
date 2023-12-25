@@ -1,0 +1,5 @@
+./usr/bin/cjpeg
+./usr/bin/djpeg
+./usr/bin/jpegtran
+./usr/bin/rdjpgcom
+./usr/bin/wrjpgcom

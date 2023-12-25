@@ -1,0 +1,175 @@
+#!/bin/sh
+
+activate_chroot() {
+
+	if grep -q $debdir/sys /proc/mounts && grep -q $debdir/proc /proc/mounts; then
+		return # already active
+	fi
+
+	grep -Ev ^rootfs\|^/dev/loop0\|/rootmnt\|aufs /proc/mounts > $debdir/etc/mtab
+
+	#mkdir -p $debdir/proc $debdir/sys $debdir/dev $debdir/dev/pts $debdir/tmp
+
+	mount -o bind  /proc $debdir/proc
+	#mount -t usbfs usbfs $debdir/proc/bus/usb
+	mount -o bind  /sys  $debdir/sys
+	mount -o bind  /dev  $debdir/dev
+	mount -t devpts none $debdir/dev/pts
+	mount -o bind  /tmp  $debdir/tmp
+
+	grep -E ^/dev/dm-[0-9]\|^/dev/md[0-9]\|^/dev/sd[a-z][1-9] /proc/mounts | while read mpart mpt rest; do
+		mkdir -p $debdir/$mpt
+		mount -o bind $mpt $debdir/$mpt
+	done
+
+	cp /etc/hostname $debdir/etc/hostname
+	cp /etc/resolv.conf $debdir/etc/resolv.conf
+	cp /etc/hosts $debdir/etc/hosts
+}
+
+deactivate_chroot() {
+
+	if test "$(ps | grep '/usr/sbin/debian chroot' | wc -l)" -gt 1; then
+		return # more than one chroot
+	fi
+
+	# sort -rk2: unmount subdirs first. The / after $debdir must be there.
+	grep $debdir/ /proc/mounts | sort -rk2 | while read dev mpt rest; do
+		umount $mpt
+		#rmdir $mpt
+	done
+}
+
+board=$(cat /tmp/board)
+model=${board%-*}
+case "$model" in
+	DNS-321|DNS-323) SoC=orion5x ;;
+	DNS-320|DNS-320L|DNS-325) SoC=kirkwood ;;
+	DNS-327L) SoC=armmp ;;
+	*) echo "Unknown Debian installer architecture for $board"; exit 1 ;;
+esac
+
+inst=$(find /mnt -maxdepth 3 -name initrd.img-\*-$SoC)
+
+for i in $inst; do
+	dn=$(dirname $i)
+	debdir=$(dirname $dn)
+	if test -f ${dn}/vmlinuz-*-$SoC; then
+		break;
+	fi
+done
+
+if test -z "$debdir"; then
+		echo "No Debian installation found"
+		echo "usage: debian [-chroot [command] | -kexec]"
+		exit 1
+fi
+
+if test $# != 0 -a "$1" = "-chroot"; then
+
+	shift
+	if test $# = 0; then
+		cmd="/bin/bash"
+	else
+		cmd="$*"
+	fi
+
+	cp $debdir/etc/default/kexec-debian  $debdir/etc/default/kexec >& /dev/null
+
+	activate_chroot
+	chroot $debdir $cmd
+	st=$?
+	deactivate_chroot
+	return $st
+
+elif test $# != 0 -a "$1" = "-kexec"; then
+
+	if test "$SoC" != "orion5x"; then
+		echo "Debian -kexec not working on DNS-320/DNS-320L/DNS-325/DNS-327, exiting."
+		exit 1
+	fi
+
+cat<<-NEOF > /tmp/deb	
+	#!/bin/sh
+
+	# try to recover
+	recover() {
+		echo \$1
+		umount \$part
+		for i in /dev/sd[a-z]; do
+			eject -r \$(basename \$i)
+		done
+		sleep 3
+		rcall start
+		exit 1
+	}
+
+	part=$debdir
+	if ! test -f /dev/\$(basename \$part); then
+		part="\$(awk '/'\$(basename \$part)'/{print \$1}' /proc/mounts)"
+	fi
+
+	mdadm --detail --test \$part >& /dev/null
+	raid=\$?
+
+	if grep -q '^iface eth0 inet static' /etc/network/interfaces; then
+		cp /etc/network/interfaces $debdir/etc/network/
+	else
+		cat<<-EOF > $debdir/etc/network/interfaces
+			auto lo
+			iface lo inet loopback
+
+			auto eth0
+			iface eth0 inet dhcp
+		EOF
+	fi
+
+	cp /etc/hostname /etc/resolv.conf /etc/hosts $debdir/etc/
+
+	cat<<-EOF > $debdir/etc/fstab
+		proc	/proc	proc	defaults	0	0
+		sysfs	/sys	sysfs	defaults	0	0
+		\$part	/	\$(blkid -sTYPE -o value \$part)	defaults	1	1
+	EOF
+
+	for i in \$(blkid -t TYPE=swap -o device); do
+		echo "\$i	swap	swap	defaults	0	0" >> $debdir/etc/fstab
+	done
+	
+	cp $debdir/etc/default/kexec-debian  $debdir/etc/default/kexec >& /dev/null
+
+	echo "Now leaving Alt-F..."
+	rcall stop
+	#if ! eject -a; then
+	#	recover "Failed, couldn't stop disks."
+	#fi
+	eject -a
+
+	mkdir -p $debdir
+	if test "\$raid" -lt 2; then # allow degraded but working RAID
+		mdadm --assemble \$part
+	fi
+	if ! mount -o ro \$part $debdir; then
+		recover "Failed, couldn't mount \$part."
+	fi
+
+	rcsysctrl stop
+
+	echo 127 > /tmp/sys/pwm1
+
+	echo "Executing Debian now..."
+
+	kexec --atags --load $debdir/vmlinuz --initrd=$debdir/initrd.img \
+		--command-line="console=ttyS0,115200 root=\$part" && kexec -e
+
+	recover "Failed to start Debian, trying to restart."
+NEOF
+
+chmod +x /tmp/deb
+cd /tmp
+nohup /tmp/deb &
+
+else
+	echo "A $(cat $debdir/etc/issue.net) installation was found at $debdir"
+	echo "usage: debian [-chroot [command] | -kexec]"
+fi

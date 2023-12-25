@@ -1,0 +1,9 @@
+Package: git
+Description: A free & open source, distributed version control system.
+Version: 2.4.2-1
+Depends: gettext, libcurl, pcre, expat, ipkg, perl
+Architecture: arm
+Priority: optional
+Section: admin
+Source: http://git-scm.com/
+Maintainer: jcard

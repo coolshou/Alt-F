@@ -1,0 +1,11 @@
+config BR2_PACKAGE_GAWK
+	bool "gawk"
+	depends on BR2_USE_WCHAR
+	select BR2_PACKAGE_LIBINTL
+	select BR2_PACKAGE_GETTEXT
+	help
+	  A special-purpose programming language which is data driven
+	  rather than procedural.  Allows for simple data-reformatting jobs
+	  with just a few lines of code.
+
+	  http://www.gnu.org/software/gawk/

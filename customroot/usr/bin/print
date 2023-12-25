@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# lpd helper, original print sequence is not preserved!
+ 
+printer=$(basename $PWD)
+lockfile=$PWD/.lockdir
+
+while ! mkdir $lockfile; do
+  sleep 5
+done
+
+if test -c /dev/$printer; then
+  cat ./"$DATAFILE" > /dev/$printer
+  rm -f ./"$DATAFILE"
+fi
+
+rmdir $lockfile

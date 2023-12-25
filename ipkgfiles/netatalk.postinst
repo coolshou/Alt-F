@@ -1,0 +1,5 @@
+#!/bin/sh 
+
+ln -sf /usr/sbin/rcscript /sbin/rcnetatalk
+rcnetatalk status
+return 0

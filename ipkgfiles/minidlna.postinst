@@ -1,0 +1,5 @@
+#!/bin/sh
+
+ln -sf /usr/sbin/rcscript /sbin/rcminidlna
+rcminidlna status
+return 0

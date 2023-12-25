@@ -1,0 +1,13 @@
+#!/bin/sh
+
+nm=$(basename $0)
+nm1=${nm#rc}
+
+srp="/etc/init.d/S??${nm1}"
+
+if test -f $srp; then
+	sh $srp $*
+else
+	echo "$srp not found."
+	exit 1
+fi

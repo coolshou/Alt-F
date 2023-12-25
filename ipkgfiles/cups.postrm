@@ -1,0 +1,8 @@
+#!/bin/sh
+
+DIRS="/var/spool/cups /var/cache/cups /var/run/cups /var/log/cups"
+
+deluser cups
+delgroup lpadmin
+
+rm -rf /sbin/rccups $DIRS

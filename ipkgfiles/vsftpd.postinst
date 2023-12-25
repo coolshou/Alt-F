@@ -1,0 +1,5 @@
+#/bin/sh
+
+ln -sf /usr/sbin/rcscript /sbin/rcvsftpd
+rcvsftpd init
+return 0

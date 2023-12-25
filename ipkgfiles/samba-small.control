@@ -1,0 +1,9 @@
+Package: samba-small
+Description: The stripped-down version of Samba shipped in the firmware.
+Depends: ipkg
+Version: 3.6.25
+Architecture: arm
+Priority: optional
+Section: admin
+Source: http://www.samba.org
+Maintainer: jcard

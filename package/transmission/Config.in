@@ -1,0 +1,9 @@
+config BR2_PACKAGE_TRANSMISSION
+	bool "transmission"
+	select BR2_PACKAGE_LIBCURL
+	select BR2_PACKAGE_OPENSSL
+	select BR2_PACKAGE_LIBEVENT2
+	help
+	  Bittorrent client
+
+	  http://download.m0k.org/transmission/files

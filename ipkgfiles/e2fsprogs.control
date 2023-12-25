@@ -1,0 +1,10 @@
+Package: e2fsprogs
+Description: The EXT2/3/4 file system utilities and libraries
+Version: 1.42.13
+Depends: ipkg
+Architecture: arm
+Priority: required
+Section: admin
+Source: http://e2fsprogs.sourceforge.net/
+Maintainer: jcard
+Essential: yes

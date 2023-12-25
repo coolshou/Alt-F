@@ -1,0 +1,9 @@
+Package: openssh-sftp
+Description: The sftp server component of openSSH 
+Version: 8.3p1
+Depends: ipkg, openssl
+Architecture: arm
+Priority: optional
+Section: admin
+Source: http://www.openssh.com/
+Maintainer: jcard

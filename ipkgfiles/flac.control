@@ -1,0 +1,9 @@
+Package: flac
+Version: 1.3.0
+Description: An Open Source lossless audio codec.
+Depends: flac-libs, ipkg
+Architecture: arm
+Priority: optional
+Section: admin
+Source: http://flac.sourceforge.net/
+Maintainer: jcard

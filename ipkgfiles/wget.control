@@ -1,0 +1,9 @@
+Package: wget
+Description: Network utility to retrieve files from http/ftp/etc...
+Version: 1.20.3-1
+Depends: ipkg, libiconv, openssl
+Architecture: arm
+Priority: required
+Section: admin
+Source: https://www.gnu.org/software/wget
+Maintainer: jcard

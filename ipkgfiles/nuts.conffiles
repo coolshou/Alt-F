@@ -1,0 +1,10 @@
+./etc/nut/nut.conf
+./etc/nut/ups.conf
+./etc/nut/upsd.conf
+./etc/nut/upsd.users
+./etc/nut/upsmon.conf
+./etc/nut/upssched.conf
+./etc/nut/hosts.conf
+./etc/nut/upsset.conf
+./etc/nut/upsstats.html
+./etc/nut/upsstats-single.html

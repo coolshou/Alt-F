@@ -1,0 +1,6 @@
+#!/bin/sh
+
+sed -i "\|/usr/sbin/vsftp|d" /etc/inetd.conf
+rcinetd reload
+
+rm -f /sbin/rcvsftpd

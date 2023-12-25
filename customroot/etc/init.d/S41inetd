@@ -1,0 +1,102 @@
+#!/bin/sh
+
+DESC="ssh, ftp, rsync, http, https, swat, lpd, telnet,..."
+TYPE=net
+NAME=inetd
+REQUIRE="inetd" # don't allow inetd to be stopped
+
+CONFF=/etc/inetd.conf
+CONFS=/etc/inetd.conf.default
+SERRORL=/var/log/systemerror.log
+AVAHI_SRV="rsync ssh telnet ftp ftps http https printer swat swats"
+
+. /etc/init.d/common
+
+#set -x
+
+check() {
+	if ! grep -q "\(^#$1[[:space:]]\|^$1[[:space:]]\)" $CONFF; then
+		echo "$NAME: service $1 does not exists"
+		return 1
+	fi
+}
+
+# $1-service (rsync ssh telnet ftp http printer swat)
+enable() {
+	for i in $*; do
+		if ! check $i; then continue; fi
+		if grep -q "^#$i[[:space:]]" $CONFF; then
+			if test "$i" = "printer"; then modprobe usblp; fi
+			sed -i "s/^#$i[[:space:]]/$i\\t/" $CONFF
+			avahi add $i
+		fi
+	done
+	reload $NAME
+}
+
+disable() {
+	for i in $*; do
+		if ! check $i; then continue; fi
+		if grep -q "^$i[[:space:]]" $CONFF; then
+			if test "$i" = "printer"; then modprobe -r usblp; fi
+			sed -i "s/^$i[[:space:]]/#$i\\t/" $CONFF
+			avahi remove $i
+		fi
+	done
+	reload $NAME
+}
+
+avahi_add() {
+	for i in $AVAHI_SRV; do
+		if grep -q "^$i[[:space:]]" $CONFF; then
+			avahi add $i
+		fi
+	done
+}
+
+avahi_remove() {
+	for i in $AVAHI_SRV; do
+		avahi remove $i
+	done
+}
+
+istart() {
+		if grep -q "^printer" $CONFF; then modprobe usblp; fi
+		if ! grep -qE '(^ftps|^#ftps).*implicit_ssl=' $CONFF; then # FIXME: add ftps, to remove after RC4
+			sed -i "/^ftp/a \
+ftps	stream	tcp	nowait	root	/usr/sbin/vsftpd	vsftpd -oimplicit_ssl=yes" $CONFF
+		fi
+		if ! grep -qE '.+#' $CONFF; then  # FIXME: add comments, to remove after RC5
+			awk '{print $1, substr($0, index($0,"#"))}' /rootmnt/ro/$CONFF | while read srv cmt; do
+				if ! echo "$srv" | grep -qE '.+#'; then
+					sed -i "\|$srv[[:space:]]|s|.*|&\t$cmt|" $CONFF
+				fi
+			done
+		fi
+
+		rcdropbear init
+		rcvsftpd init
+		rcstunnel init
+}
+
+case "$1" in
+	start)
+		istart
+		avahi_add
+		if ! start $NAME; then # corrupted conf file?
+			msg="$0: inetd not starting, starting with an alternative minimum safe configuration."
+			logger -st error $msg
+			echo "<li>$msg</li>" >> $SERRORL
+			mv $CONFF $CONFF.old
+			cp $CONFS $CONFF
+			start $NAME
+		fi
+		;;
+	stop) stop $NAME; avahi_remove ;;
+	restart) restart $NAME ;;
+	reload) reload $NAME ;;
+	status) status $NAME ;;
+	enable) shift; enable $* ;;
+	disable) shift; disable $* ;;
+	*) usage $0 "start|stop|status|reload|restart|enable <srv>|disable <srv>" ;;
+esac

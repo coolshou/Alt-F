@@ -1,0 +1,688 @@
+=== October 13, 2017: Alt-F-1.0 is released
+
+Hi,
+
+I'm pleased to announce Alt-F-1.0.
+
+Alt-F has now more than seven years old, is stable since several releases ago,
+and is even showing some grey hairs, so it would be unfair to not make a 1.0 release.
+Here it is!
+
+In this release most, if not all, issues reported by users that tested the RC6 and 1.0
+Snapshots are fixed, and most pre-installed packages have been updated to their last released version.
+
+It was thoroughly tested on a DNS-323 rev-A1/B1, a DNS-325 rev-A1, a DNS-320L rev-A1
+ and a DNS-327L rev-A1 boxes.
+
+Please read until the end, particularly the Firmware upgrading instructions,
+enjoy and report any issue,
+João
+
+News:
+===
+
+-updated to linux kernel 4.4.86
+ -Hardware accelerated crypto device: mv-cesa driver replaced by newer marvell-cesa.
+  Not working on the DNS-321/323.
+ -iscsitarget not supported for new kernel.
+ -The USB UAS support has been removed from the kernel, as it causes issues with certain
+  (mostly Seagate) USB disk enclosures.
+ -wireless USB network drivers are available in the kernel-modules-armvx package.
+
+-update to samba-3.6.25, which supports SMB2
+ The "Samba Setup" webUI now allows enabling or disabling SMB1 and/or SMB2.
+ After changing it in the webUI, if needed, the client user might have to logout or reboot the PC.
+ Most SMB2 enabled clients will use SMB2 if available, and might have lower thougput than SMB1.
+ Notice that most embeded devices and linux clients need SMB1.
+
+-A new service and webUI, 'rmount' (Remote Mount), is now available.
+ It is intended to mount remote NFS and CIFS filesystems at start.
+ It basicaly consists of the "Import Remote Filesystem" in the NFS and SMB webUIs.
+
+-A new service, 'nsm' (Network Status Monitor) is available.
+ It is automaticaly used by the nfs and rmount services.
+
+-The "Setup Host" webUI handle host name and IP changes more friendly.
+ There are still issues when using https, as for security the browser refuses to accept
+ the new name or IP.
+ User supplied name servers are now honored.
+
+-The SSL self-signed certificates for https usage now uses subjectAltName in addition to CN.
+
+-dnsmasq removed from the base firmware on the DNS-321/323
+
+-Entware-ng install, package management and services start and stop webUIs
+
+-The fan speed can use disk temperatures into account if the hddtemp service is running.
+ catch: Disks will not spin down because the drive is constantly being pooled for its temperature.
+
+-DNS-320/321/323/325: the power button now powers off the box if released during the first
+ 3 seconds and reboots the box if released during the next 3 seconds.
+
+Know issues:
+=======
+
+-DNS-323/321: You have to flash 1.0 if still in RC4.1 or previous, TryIt mode does not works.
+ If however you want to Tryit first, you have to use the following command to try 1.0 before
+ hitting the TryIt button:
+ echo "console=ttyS0,115200 root=/dev/ram0 init=/init earlyprintk kexecmode" > /boot/cmdline
+
+- when partitioning new disks with GPT using the web interface, only the first position in the partitions
+ table is editable (no problem when disk is set to MBR).
+ Actually, the cursor is not shown but if number are typed they will appear.
+
+-The webUI red warning "When done you must save settings" is diaplayed warning for a changed
+ /etc/samba/smbpasswd, even if it is not changed.
+
+-if using DDNS  under Services->Network->ddns, re-configure because of configuration changes
+
+-The Alt-F Package Manager might display erroneous information, as the fw contains packages
+ that have not yet been released.
+
+-Packages that was preinstalled on previous releases and that now are not preinstalled,
+ will appear as installed under the Package Manager webUI; they can be safely removed.
+
+Firmware upgrading instructions:
+==================
+
+-Reboot the box before performing any upgrade.
+
+-Look at the box bottom attached label to see its hardware revision
+ level, then select the appropriate Alt-F-1.0 bin file and
+ use the normal firmware upgrade method to flash it.
+ For example, the Alt-F-1.0-DNS-320-rev-Ax.bin file is to be used
+ on the DNS-320 on any rev-A1, A2 or A3 box.
+ Don't try to flash firmware if your box is not supported.
+
+-When alternating between D-Link and Alt-F firmware clear the browser cache.
+ The box name and IP might also change, consult your router DHCP client/lease page,
+ or a network scanner program (Fing on Android, e.g.) to determine the new box IP.
+
+-If you are already using Alt-F:
+ -make sure that both the HTTP and HTTPS admnistrative servers
+  are in "inetd mode", not in "server mode". Use Services->Network, http, Configure.
+ -Use http to access the box webUI for the upgrade.
+ -Save current settings to a desktop computer (System->Settings, in the
+   "Computer Disk" section, "Save current settings to file" hit the Download button)
+ -if using Alt-F-0.1RC5 or latter
+  -download also the firmware associated sha1 file and in the
+   Firmware Upgrader webUI supply it along with the firmware bin file in order to
+   verify the firmware download integrity.
+  -Unapply the "network corruption fix" after flashing 1.0 using
+   Services->User, user, Configure, clear the "Script to execute on powerup" entry and Submit.
+ -If running the 1.0 Snapshot, execute the following commands after flashing the 1.0 Release,
+  in order to update the pre-installed packages list:
+  rm /usr/lib/ipkg/.fixed
+  ipkg -update
+ 
+=== June 25, 2016: Alt-F-0.1RC5 is released
+
+Some user relevant news and fixes:
+-DNS-327L-rev-Ax support. Some CPU capabilities are not yet used.
+ Thanks to Fernando Gomes for donating it.
+-Linux upgraded to 3.18.28
+-Basic support to btrfs
+-Firmware Upgrader now optionally checks firmware file integrity using SHA1
+-Most packages in the base firmware have been updated to their latest version,
+ disk installable packages will follow, make your request.
+-The ntp package was removed from firmware, due to lack of flash memory space,
+ and is replaced by busybox ntpd.
+-The All-F folder for disk-installable packages can now be de-activated or moved to another filesystem
+-Most servers which were under inetd control can now be run standalone
+ There are some pending issues when making the transition from inetd to server mode and vice-versa.
+-minidlna removed from the DNS-321 base firmware due to lack of flash memory space
+-Some webUI security vulnerabilities fixed, thanks to Ondřej Surý for reporting.
+-Fixes for 8TB disks on the Disk Partitioner and Disk Wizard
+-The Disk Partitioner can now handle out-of order (D-Link inherited) partitions
+-Filesystems can now be forced to be checked on the next boot
+-Allow to recreate swap and specify partition-based swap priorities and swap aggressiveness
+-Support users cron jobs; if saved as ~/crontab.lst, they will automatically be started
+-The user script to execute at powerup can be edited using the webUI
+-The box-model-MAC-address is used as the default hostname on the first boot
+-The orange disk leds will be turned on when (some) detected system errors are detected.
+-Fix installed/pre-installed packages version conflict when firmware upgrade is detected
+
+Known issues:
+-On the Firmware Upgrade webUI of previous releases the TryIt button will not be able to try
+ this release, you have to flash it.
+-https, provided through stunnel, can fail the first time when in server mode; 
+ stopping and restaring the stunnel service is usually enough to recover.
+-The webUI does not supports disks reporting 4KB logical sector size;
+ disks with 4KB physical sector size and reporting 512 bytes logical sizes, the majority, works fine.
+-when upgrading some packages (rsync) its configuration files might be overwritten
+-When using https the webUI can't embed some external or running services http web pages
+ (and most https servers disable embedding for security reasons)
+-smartd now displays errors on the Status page, but migh fail on its first start,
+ use Submit in Services->System->smart->Configure to fix.
+-kexec is not working on the 320/320L/325 (it fails even on linux-4.3.0)
+-Debian in kexec mode only works on the DNS-321/323
+-the iscsitarget package is not working on the DNS-327 and generates BUG kernel errors on other boxes.
+-the cryptodev package is not working on the DNS-327
+-to upgrade the kernel-modules package, the kernel-modules-armv5 package must be installed first
+-the kernel-modules package don't automatically install/un-install the appropriate
+ kernel-modules-armv5 or kernel-modules-armv7 package, you have to install/un-install them.
+-If upgrading from previous releases, the ntp package will appear as installed, it can safely be removed.
+
+=== February 3, 2015: Alt-F-0.1RC4.1 is released
+
+This is mainly a maintenance release, with all fixes for the RC4 applied
+and with some other minor fixes and improvements.
+All users are encouraged to upgrade.
+
+The DNS-320L/LW-rev-Ax and the DNS-320-rev-Bx support is now complete.
+The circuit boards for the DNS-320L-rev-Ax and DNS-320-rev-Bx are
+identical apart from a smaller amount of memory in the DNS-320-rev-Bx,
+so any of them can use the other firmware.
+
+If you are running the vendor's firmware you don't have to follow the
+bellow described procedure.
+
+If however you have flashed 0.1RC4 or the experimental releases and
+applied any fix or patch, you have to manually removed them before upgrading.
+In the future this will happens automatically when upgrading, but for now
+you have to save and execute a file in the box. Rolling fixes back might
+not work as expected.
+You also have to disable the "boot user script" if you are using it to apply
+any fix or patch to the DNS-320-rev-Bx or to the 320L/LW-rev-Ax boxes.
+
+Create a file with the text between the two '-----------' lines below,
+being sure that #!/bin/sh is at the file first line and column. Then
+telnet or ssh the box and login as the 'root' user using the same
+password as in the webUI and execute it by typing in the command line:
+
+dos2unix /path/to/saved/file
+sh /path/to/saved/file
+
+e.g. if you named the file 'fix' and saved it in '/mnt/sda2':
+
+dos2unix /mnt/sda2/fix
+sh /mnt/sda2/fix
+
+
+-----------8<---------
+#!/bin/sh
+if aufs.sh -s; then
+ aufs.sh -n
+ for i in $(find /rootmnt/ro /rootmnt/sqimage -type f 2> /dev/null | sed "s|^/rootmnt/[^/]*/||"); do
+  if test -f /Alt-F/$i && ! grep -q $i /etc/settings /usr/lib/ipkg/info/*.list; then
+   rm -f /Alt-F/$i
+  fi
+ done
+ aufs.sh -r
+fi
+---------->8---------
+
+Some relevant user-related changes since RC4:
+
+-add temperature hysteresis parameter
+-make fanctl() implement several fan control modes (Auto/always off/always slow/always fast)
+-exchange left/right bay for DNS320L
+-parse drive family/model name with embeded quotes
+-turn the blue USB led off only when there are no USB attached devices
+-don't turn on usb led by default
+-handle xz compressed debian packages
+-activate disk leds on disk access;
+-support ppp and usb attached device names
+-support swap over RAID
+-create directories for fixe affected files so fixes will they survive a reboot/poweroff
+-download only new fixes
+-rollback fixes if they were removed from the repository
+-don't allow rollbacking a fix if it is required by an applied fix
+-add fixes RemoveAll button
+-sys utils: don't fail if the System Configuration log is not found
+-Mail webUI: sanitize "from/to" entries
+-inetd webUI: fix ticket 328: Inetd "Boot Enabled" disables itself.
+-Disk Wizard: fix ticket 358: Disk Wizard fails creating RAID with 6TB disks
+-Filesystem Maintenance: fix display of unmounted devices
+-backup: allow excluding files/directories by using .rsync-filter files, using '-F --delete-excluded' rsync options
+
+=== June 24, 2014: Alt-F-0.1RC4 is released
+
+-The DNS-320/325 is now supported. Supported devices are the DNS-320-rev-A1/A2, DNS-321-rev-A1/A2,
+ DNS-323-rev-A1/B1/C1, DNS-325-rev-A1/A2, Conceptronic CH3SNAS, and Fujitsu-Siemens DUO 35-LR
+
+-Preliminary support for the DNS-320L/LW-A1, thanks to Steven Samson collaboration and
+ Andreas Böhler work (http://www.aboehler.at/cms/projects-a-hacks/50-dns320l).
+ More work is needed, please report any issue.
+
+-All packages in the base firmware updated, most require RC4, upgrade to RC4 to use them.
+ As such, all Disk-installable packages must be updated (Packages->Alt-F, UpdatePackagList, then UpdateAll)
+ As there are almost 200 packages available, only the most used ones have been tested.
+ Please use https://sourceforge.net/p/alt-f/_list/tickets for bug reports or requests.
+
+-Most packages in the base firmware are now individually upgradable on disk, avoiding the need
+ for a new Alt-F release whenever any of those packages has a new release.
+
+-For the DNS-320/321/325 some packages are pre-installed in the firmware.
+ You still HAVE TO CREATE A USER (Setup->Users) and SETUP ALT-F PACKAGES (Packages->Alt-F) on disk.
+
+-The build system has been extensively reviewed and tested on openSUSE-12.1/13.1 and on Debian 7.0.
+
+-Package updates, fixes, releases, as well as Announcements, are checked twice a week and shown
+ in the Status page through the News service (Services->System). It has nothing to do with USENET News.
+
+-There is the possibility of applying simple fixes using the webUI, avoiding the need
+ for a new Alt-F release (System->Utilities->Fixes).
+ If the "News" service is running you will be warned of the fixes existence in the Status page.
+
+-The linux kernel 3.10.32 is now used.
+
+-The reloaded/run-on-top mode has been discontinued
+
+-The inady DDNS client has been replaced by inadyn-mt, which supports 14 DDNS providers
+
+-Added Disk and Users Quotas webUI
+
+-The Status pages now has a Errors/Warning section
+
+-The ftp server can be launched standalone (not under inetd control).
+
+-Themable webUI
+
+-Simple ffp services start/stop control
+
+-Setup->Host Samba related items moved to Samba Setup
+
+-Added Samba online help.
+
+-Most known bugs are fixed.
+
+-Setup->Debian now installs "wheezy"
+
+known issues:
+
+-kexec is not working on the DNS-320/325, no TryIt in Firmware Update nor Debian kexec (only chroot)
+-starting Transmission deploy a "save settings" warning on the DNS-320/325
+-leds might work differently than described on different hardware revision boards
+-the transmitted/received bytes on the Status page wraps to zero at 4GB
+
+=== March 23, 2013: Alt-F-0.1RC3 is released
+
+One year after 0.1RC2 and three years after 0.1B1, I'm pleased to announce 0.1RC3.
+This will be the last release before the final 1.0.
+
+This release has many bug fixes, some improvements and a few new things
+
+Use https://sourceforge.net/projects/alt-f to download it
+
+-Before upgrading to RC3, remove the stunnel package, now part of the
+ base firmware, as well as all packages that overrides the base firmware
+ in RC2, such as samba, samba-extra, vsftp, gptfdisk...
+
+-After upgrading to RC3, and if you are using DHCP, then use Setup->Host
+ to update the configuration for new DHCP features (always request the
+ same IP and supply the current host name to the DHCP server)   
+
+After one year I just don't remember all made changes. The most recent and noteworth:
+
+-The DNS-321 is now supported, thanks to Matt Hayden.
+ Instead of flashing Alt-F, you can try first to use the "reloaded" method (untested).
+
+-There is firmware available for the Conceptronics-CH3SNAS and the
+ Fujitsu-Siemens DUO35LR, ready to be flashed using the boxes Firmware
+ Upgrade pages. 
+
+-The linux kernel is now compiled for execution speed instead of space saving.
+
+-When Alt-F is flashed, the root filesystem runs directly from flash
+ memory, saving 6.5MB of memory (a 10% saving!)
+
+-Ethtool has been removed from the base firmware and is now an independent package.
+
+-The Folder Browser now can rename folders, has a faster Flat View mode,
+ supports non western languages, and has a progress meter for the copy
+ and move operations.
+
+-The Status page shows the box hardware Backup and fsck errors, and the box  
+
+-A few Backups fixes, creating log files that shows on the Status Page on error
+
+-SWAT is not embedded in frames anymore (security http://www.samba.org/samba/security/CVE-2013-0213)
+
+-Some fixes to the Alt-F and ffp Package Manager pages
+
+-The ffp Package Manager now supports installing both ffp-0.5 and ffp-0.7
+
+-Bookmarking now works for embedded pages
+
+-stunnel is now part of the base firmware, meaning that secure http is
+ now available of the shelf for the administrative web pages (including SWAT)
+
+-The httpd configuration web page now allows selecting between port 80 or 8080 for the
+ administrative web server for http, or between ports 443 or 8443 for https, so the default
+ 80 and 443 port will be keep free for usage with the lighttpd server.
+
+=== February 21, 2012: Alt-F-0.1RC2 is released
+
+-All packages in the base firmware updated to the last version (but e2fsprogs and samba,
+which is now at version 3.5.12; samba-3.6.3 and e2fsprogs-1.42 just don't fit
+the available flash space)
+
+This package update has subverted the Release Candidate (RC) concept,
+and although care has been taken, there might exists incompatibility
+with some RC1 configuration files. New users should have no problems.
+No update fix script will be made available.
+
+-Most bugs and feature requests fixed
+-Most web pages are now W3c Validator compliant
+-Ability to bookmark frequently accessed web pages
+-New rsyncd setup web page
+-New crontab setup web page
+-Preliminary LVM setup web page (don't use in production!)
+-Improved cryptsetup web page
+-Improved mail setup web page
+-Improved samba setup web page
+-Restore RAID behaviour of 0.1B7
+-IPv6 moved to the kernel-modules packages
+-Obsolete/Updated/new disk-instalable packages (more to follow after this release):
+
+	netatalk-2.1.6 is not supported anymore, upgrade to netatalk2.
+	netatalk-2.2.2
+	transmission-2.42
+	fuppes-660 is back
+	minidlna-1.024	
+	automatic-0.7.2
+	cryptsetup-1.4.1
+	bridge-1.5
+	pcre-8.20
+	cryptodev-linux-1.0 (for hardware accelerated crypto engine)
+	kernel-modules has now more drivers available
+
+User who have an already Alt-F flashed box should use the TryIt button 
+in the Firmware Upgrader web page before flashing this new version. 
+Users that are using a reloaded Alt-F can proceed as above first, in order 
+to try the new version without messing up with the fun_plug installation. 
+
+=== October 13, 2011: Alt-F-0.1RC1 is released
+
+-Alt-F can now be directly flashed using the vendor's firmware, no need for fun_plug
+ (tested with D-Link firmware 1.09 on a rev-B1 hardware box)
+
+-Support for greater then 2.2TB disks (with UEFI GPT partitioning)
+ Disk Partitioner and Disk Wizard support
+ Conversion from MBR to GPT and vice-versa
+
+-Secure (https) web pages through the optional package 'stunnel'
+ Both http and https are active (swat uses port 902 for https) 
+
+-The Backup Service can now backup remote hosts using ftp/http/smb/nfs/rsync/rsyncd.
+ It can even wakeup the remote host at backup time if the remote host is configured
+ to be awaked-up by a network magic packet, WOL.
+ Files greater than 4.2GB are not supported.
+
+-Debian now installs into and runs from RAID
+
+-More online-help pages
+
+-uClibc changes for Optware compatibility. However, most Optware packages are still not usable.
+ Due to the uClibc change, the recommended procedure is to update all packages 
+ after upgrading to RC1 (the Alt-F_B7_to_RC1.fix script does this)
+
+-updated packages: samba, netatalk, forked-daapd, transmission, avahi,
+ cups, mdadm, rsync, smartmontools, wget, openssh, ffmpeg, hplip,
+ libcurl, libpcap, libxml2, lzo, dnsmasq, dropbear, libiconv,
+ msmtp, nfs-utils, ntp, netsnmp, libgcrypt,
+ libgpg-error, libpcre, popt,
+
+-samba-3.5.9 update asks for configuration file editing,
+ adding "passdb backend = smbpasswd" to the Global section
+ (the Alt-F_B7_to_RC1.fix script does this)
+ 
+-Thanks to samba, now using 1/3 of flash space! the base firmware had to be compiled for
+ flash memory space saving, not execution speed :-(
+ -disk-installable packages are still compiled for execution speed
+
+-new packages: gptfdisk, openvpn, cryptsetup, lvm2, iscsitarget, nut, parted,
+ nmap, sysstat, bonnie++, ntfs-3g_ntfsprogs, stunnel, 
+
+-cryptsetup initial support adds capability to LUKS format a physical partition.
+ -No checks are done to see if the partition is currently in use
+ -remember dm-crypt/LUKS is 3 to 4 times slower than a non encrypted partition!
+ -there are some problems identifying and handling devices, cryptsetup fault,
+  as it generates lots of (unnecessary?) device add/remove kernel events.
+
+-LVM initial support, scan volume groups and and mounts physical volumes
+ no web interface to create and manage them.
+
+-LVM and cryptsetup might interfere Disk Partitioner.
+ You might have to stop them manually if problems arise. 
+
+=== March 26, 2011: Alt-F-0.1B7 is released on Alt-F first anniversary
+
+	In the previous 12 months Alt-F has seen 6 releases, which gives an average of
+	a new release every 2 months.
+
+	During the previous year, thanks to many user reports and suggestions,
+	and to many bug-fixes and improvements, Alt-F has evolved in a way that
+	means that it is now mature and ready to leave the Beta status, what
+	will hopefully happens in the next release.
+
+	Online documentation, Wiki entries, packages updates and bug fixes will be the priority
+	for the next release.
+
+	Alt-F is intended to be a serious and sustainable alternative to the vendor's firmware,
+	ready to be used by the average user through its administering web pages.
+
+	Enjoy
+	
+
+-What's new:
+	-kernel 2.6.35.11, as kernel 2.6.36.x had issues with A1 boards
+	-IPv6 support in kernel and packages that support it
+	-more robust reloading method, thanks to putterboy findings;
+	 also, when reloading fails, the box will most often be rebooted instead of freezing.
+
+	-filesystem check at boot now does not stops the boot process,
+	 as fsck is parallelized/serialized and runs in the background
+	-disk spindown now enforced be sysctrl
+	-new cleanup service to clean (truncate) log files
+
+	-Debian Installer page, to chroot or kexec Debian Squeeze
+	-Save/Load setting to/from desktop computer
+	-View/filter/download all existing log files
+	-Pages that show temperatures show them in Celsius and Fahrenheit
+	-Status page now uses bar graphs and an AJAX-like refresh mechanism,
+	 based on original idea and code contributed by Dwight Hubbard
+	-many improvements and bug fixes (about 280 changesets affecting 424 files since B6)
+
+-New Alt-F packages:
+	 automatic-0.6.4, forked-daapd-0.13, 
+	 alsa-lib-1.0.18, dbus-1.2.26, libantlr-3.2, libavl-0.3.5, libconfuse-2.6, 
+	 libevent-2.0.10, libgcrypt-1.2.4, libgpg-error-1.6, libunistring-0.9.3, mxml-2.6,
+	 libcurl-7.19.6, ncurses-5.6, python-2.45, uemacs-4.0.15
+
+-Updated Alt-F packages:
+	 transmission-2.22, minidlna-1.0.19, mediatomb-0.12.1, ffmpeg-0.6.1,
+	 avahi-0.6.28, netatalk-2.1.5, cups-1.4.6, hplip-3.11.1, 
+	 openssh-0.9.8.r, vsftpd-2.3.4, rsync-3.0.7, wget-1.11.4, dropbear-0.53, dnsmasq-2.57, 
+	 e2fsprogs-1.41.14, smartmontools-5.40, dosfstools-3.0.11, ntfs-3g-2010.10.2,
+	 ethtool-2.6.36, Berkeley-db-4.8.30, libiconv-1.13.1, libfuse-2.8.5, libdaemon-0.14, 
+	 tiff-3.9.4, jpeg-8c, taglib-1.6.3,  zlib-1.2.5
+
+User who have an already Alt-F flashed box should use the TryIt button 
+in the Firmware Upgrader web page before flashing this new version. 
+Users that are using a reloaded Alt-F can proceed as above, in order 
+to try the new version without messing up with the fun_plug 
+installation. 
+The unstable package feed was updated with new and recompiled 
+packages. Most if not all new packages will only work on 0.1B7. 
+The old feed is still available under the name unstable-old 
+The experimental feed was deleted. 
+
+=== December 20, 2010: Alt-F-0.1B6 Released
+
+What's new:
+	-kernel 2.6.36.2, nfs-utils back to version 1.2.1
+	-terse report from vaughnd12 confirms that rev-A1 boards are now working.
+	 (tanks to Philster76 and KRH for initial testing)
+	-partitioning and filesystem web pages spliced and RAID web page created
+	-Filesystems, RAID, and Partitioner web pages are now simpler
+	-Disk Partitioner and Wizard now unconditionally aligns partitions on 4K boundaries
+	-Disk Partitioner now has an advanced mode
+	-Directory Browser web page with enhanced (but slow) browsing and
+	 with directory copy/cut/move/create/delete capabilities
+	-Directory Ownership and Access Permissions web page
+	-backup support and Backup Manager administering web pages (preliminary)
+	 backups local directories and directories mounted by NFS/CIFS
+	-Remote syslog support and administering web pages (contribution from Augusto Bott)
+	-Firmware updater web page now enables recovering original vendor's settings from backup
+	 (untested if effective, there are some differences between backup and original)
+	-Status web page only shows what exists
+	-Spaces allowed in paths in /etc/fstab and /etc/exports (use\040as\040space)
+	 and processed by smb and nfs web pages. NFS complains but works.
+	 mounts by filesystem labels still replace spaces with underscores.
+	-Speed improvement in web pages that deals with disk
+	-Countless improvements and bug fixes.
+
+	-Users with an Alt-F flashed box should use the *TryIt* option in the Firmware
+	 Updater web page before actually flashing it, as incompatibilities might happen.
+	 Its Beta!
+
+	-There are a few identified incompatibilities between B5 and B6. If you have only slightly
+	changed settings, the recomended procedure is to clear settings before starting using.
+	If you dont' want to clean settings, the file Alt-F_B5_to_B6.fix script tryies to fixes them.
+	Before using or flashing Alt-F-01.B6, telnet/ssh the box, and execute the script.
+	After doing it don't save settings until start using B6. Other incompatibilities might arise.
+
+	I will now start updating disk-instalable packages and fix 0.1B6 reported bugs.
+	No more features are expected in the base firmware, but (micro)emacs and ncurses
+	will be removed and turned into packages.
+
+	Hopefully the next release will be 0.1
+
+=== October 22, 2010: Alt-F-0.1B5 released
+
+What's new:
+
+	-finally works with 100Mbps and 1Gbps switches or routers
+	-support for rev-C1 boards through backported 2.6.36 patch
+	-fan support for rev-C1 board, using a post by Benjamin Herrenschmidt
+	 (Thanks to Alexey Boyko for collaboration with all rev-C1 testing)
+	-squashfs-lzma is back, thanks to openwrt.org forward patch
+	-kernel 2.6.35.7, nfs-utils 1.2.3, kexec to 2.0.2, 
+	-No job is finished until the paperwork is done:
+	 	-descriptive help support with some help pages already written
+		-tooltip support with demos in some pages
+	-disaster recovery:
+		-no password asked when connecting through the serial port
+		-back button opens telnet without password on port 26, or clears flash
+	-DHCP/DNS web page spliced and Hosts page created
+	-simplified samba configuration web page (swat is still there)
+	-several improvements and bug fixes
+
+=== September 22, 2010: Alt-F-0.1B4 released
+
+What's new:
+
+	-kernel 2.6.35.4
+		-owners of A1 hardware boards should try this.
+		-no lzma squashfs backported patch, as it turns the kernel
+		unstable; as a result there are less 11MB of RAM available :-(
+	-sftp and ftps support
+	-ftp administering web page (AWP)
+	-wget proxy AWP (untested)
+	-disk wizard AWP
+	-disk maintenance AWP redesigned, more disk/raid operations supported
+	-disk partitioning AWP bugs fixed
+	-remote web administration AWP (untested)
+	-redesigned side menu and added drop-down menus on AWP
+	-SMART AWP
+	-Board revision level detection
+	-several other fixes and improvements.
+
+Known Issues:
+
+	-Rev-A1 (try it an report) and rev-C1 hardware boards not yet supported
+
+	-network link auto-negotiation doesn't work. As result Alt-F
+	 only works when the box is connected to Gbit switches/routers
+	 or network cards. 100/10Mbps switch or routers won't work.
+
+	-ghostscrip/hplip can fail with an "Unable to get scanline 0/1" error,
+	 and cups does not notices it, sending the print job to the printer,
+	 which prints a black page, wasting all your cartridge ink.
+	 After configure the printer in cups, DISCONNECT THE PRINTER and print
+	 a test page. If in the State column of cups jobs web page, or using
+	 "lpstat -p" you see a  "Unable to get scanline 0/1" message,
+	 CANCEL THE PRINT JOB AND DON'T USE THAT PRINT CONFIGURATION.
+
+=== July 22, 2010: Alt-F-0.1B3 released
+
+-What's new:
+
+	-Kernel, libraries and apps compiled for execution speed instead of
+	space saving (as a result, and because of lack of flash memory space,
+	uShare and Transmission are now packages)
+	-kernel 2.6.33.6
+	-Filesystem Maintenance web page
+	-Disk Partition/RAID creation web page
+	-improved DHCP support
+	-improved fun_plug for ffp users
+	-improved Alt-F packages installation and administration
+
+-Available packages:
+    -end-user packages with web administration page:
+        -Transmission, Fuppes, MediaTomb, miniDLNA, uShare, Firefly,
+	 cups, hplip, samba-doc, 
+    -command-line tools:
+        -dev-bundle, file, lsof, make, strace, nano, usbutils, unrar 
+        -mplayer, lame, ffmpeg, sane
+    -networking:
+        -avahi, netatalk (both untested)
+    -filesystems:
+		-ntfsprogs
+    -databases:
+        -sqlite, bdb, gdbm, 
+    -support libraries and tools:
+	flac, expat, libdaemon, libdlna, libexif, libfuse, libid3tag, libmad,
+	libogg, libpng, libtheora, libupnp, libusb, libvorbis, libxml2,
+	readline, taglib, tiff, pcre
+
+-Known Issues:
+	-Rev-A1 and rev-C1 hardware boards not yet supported
+
+	-network link auto-negotiation doesn't work. As result Alt-F
+	 only works when the box is connected to Gbit switches/routers
+	 or network cards. 100/10Mbps switch or routers won't work.
+
+	-ghostscrip/hplip can fail with an "Unable to get scanline 0/1" error,
+	 and cups does not notices it, sending the print job to the printer,
+	 which prints a black page, wasting all your cartridge ink.
+	 After configure the printer in cups, DISCONNECT THE PRINTER and print
+	 a test page. If in the State column of cups jobs web page, or using
+	 "lpstat -p" you see a  "Unable to get scanline 0/1" message,
+	 CANCEL THE PRINT JOB AND DON'T USE THAT PRINT CONFIGURATION.
+
+	-big MTU (~>3712 bytes) cause a lot of "page allocation failure" error,
+	 which impairs network performance (NFS at least)
+
+	-nfs generates a lot of "received packet spanning multiple descriptors"
+	 errors when MTU is not the same on both hosts!
+
+	-partition sizes are not uniformly reported. Sometimes are binary based,
+	 others decimal based.
+
+	-component RAID disks hotpluging/ejecting might not do the right thing,
+	 specially for raid0, JBD.
+
+	-some web pages go back in browser history when an error is detected,
+	 instead of reloading the previous page. The user must refresh the page
+
+	-The Disk Partitioning web page is not able to re-partition disks whose
+	 partitions that are not in increasing partition-start order, as the 
+	 vendor's partition table are when configured for "standard disks".
+	 This only happens if the user whish to keep some partition in the
+	 middle of the disk unaltered. The solution is to re-partition the whole
+	 disk, loosing all it data.
+
+=== April 23 2010: Alt-F-0.1B2 released
+
+What's new:
+
+	-NFS setup web page done. 
+	-Native package manager based on ipkg, and administering web page. 
+	-Added a temporary and experimental package feed with some packages 
+	 available (some of them were not even tested) 
+	-Fixed fun_plug 
+
+=== March 26, 2010: Alt-F-0.1B1 released

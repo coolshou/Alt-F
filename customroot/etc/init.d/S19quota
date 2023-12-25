@@ -1,0 +1,57 @@
+#!/bin/sh
+
+DESC="User/Group Disk Quotas"
+NAME=quota
+TYPE=sys
+
+. /etc/init.d/common
+
+fs=$(grep -E '(ext2|ext3|ext4)' /proc/mounts | cut -d" " -f1)
+
+istart() {
+	for i in $fs; do
+		dev=$(basename $i)
+		if grep -qE "^$i.*(grpjquota|usrjquota)" /proc/mounts; then
+			if quotaon -p $i >& /dev/null; then quotaon -ug $i; fi
+		else
+			echo "quota on $dev is disabled" 
+		fi
+	done
+}
+
+istop() {
+	for i in $fs; do
+		dev=$(basename $i)
+		if grep -qE "^$i.*(grpjquota|usrjquota)" /proc/mounts; then
+			if ! quotaon -p $i >& /dev/null; then quotaon -ugf $i; fi
+		else
+			echo "quota on $dev is disabled" 
+		fi
+	done
+}
+
+istatus() {
+	act=0;
+	for i in $fs; do
+		dev=$(basename $i)
+		if grep -qE "^$i.*(grpjquota|usrjquota)" /proc/mounts; then
+			if quotaon -p $i >& /dev/null; then
+				echo quota on $dev is not active
+			else
+				act=$((act+1))
+				echo quota on $dev is active
+			fi
+		else
+			echo "quota on $dev is disabled" 
+		fi
+	done
+	if test "$act" != "0"; then return 0; else return 1; fi
+}
+
+case "$1" in
+	start) istart ;;
+	stop) istop ;;
+	status) istatus ;;
+	restart) restart $NAME ;;
+	*)  usage $0 "start|stop|status|restart" ;;
+esac

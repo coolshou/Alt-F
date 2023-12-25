@@ -1,0 +1,114 @@
+#!/bin/sh
+
+SITE=https://download.owncloud.org/community/7.0
+VERSION=7.0.15
+TBALL=owncloud-${VERSION}.tar.bz2
+
+OC_DIR=/opt/owncloud
+OC_CONF=$OC_DIR/config/config.php
+
+CONF_LIGHTY=/etc/lighttpd/lighttpd.conf
+CONF_LIGHTY2=/etc/lighttpd/modules.conf
+CONF_LIGHTY3=/etc/lighttpd/conf.d/fastcgi.conf
+
+PHP_CONF=/etc/php.ini
+
+if ! test -f /tmp/$TBALL; then
+echo "Downloading $SITE/${TBALL}..."
+if ! wget --progress=dot:mega -O /tmp/$TBALL $SITE/$TBALL; then
+	rm -f /tmp/$TBALL
+	cat<<-EOF
+
+		******************************************************
+		* Downloading of ownCloud from its home site failed. *
+		******************************************************
+
+	EOF
+	exit 1
+fi
+fi
+
+if rclighttpd status >& /dev/null; then
+	lighty=yes
+	rclighttpd stop >& /dev/null
+fi
+
+eval $(awk '/^var.server_root/{printf "sroot=%s", $3}' $CONF_LIGHTY)
+
+tf=$sroot/htdocs/owncloud
+if test -d "$tf" -a ! -h "$tf"; then # 3.0.2 installed
+	echo "Found a previous owncloud-3.0 install, making a backup..."
+	mv "$tf" "$tf"-3.0-old
+fi
+
+mkdir -p /opt # created under /Alt-F
+echo "Extracting ${TBALL}..."
+if ! tar -C /opt -xjf /tmp/$TBALL; then
+	rm -f /tmp/$TBALL
+	cat<<-EOF
+
+		**********************************
+		* Extraction of ownCloud failed. *
+		**********************************
+
+	EOF
+	exit 1
+fi
+rm -f /tmp/$TBALL
+
+rm -rf $sroot/htdocs/owncloud
+ln -sf $OC_DIR $sroot/htdocs/owncloud
+
+if ! test -d $sroot/owncloud-data; then
+	mkdir -p $sroot/owncloud-data
+fi
+rm -rf $OC_DIR/data
+ln -sf $sroot/owncloud-data $OC_DIR/data
+
+if ! test -d $sroot/owncloud-config; then
+	mkdir -p $sroot/owncloud-config
+fi
+rm -rf $OC_DIR/config
+ln -sf $sroot/owncloud-config $OC_DIR/config
+
+# allow owncloud to be embeded in Alt-F webUI
+if ! test -f $OC_CONF; then
+	cat <<EOF > $OC_CONF
+<?php
+\$CONFIG = array (
+	'xframe_restriction' => false,
+);
+EOF
+elif ! grep -q xframe_restriction $OC_CONF; then
+	sed -i "/'datadirectory'/a \  'xframe_restriction' => false," $OC_CONF
+fi
+
+chown -R lighttpd:network $sroot/owncloud-config $sroot/owncloud-data $OC_DIR
+
+# enable needed PHP extentions
+for i in json session sqlite3 xml mbstring zip zlib gd curl ctype simplexml \
+	hash dom pdo pdo_sqlite fileinfo iconv xmlwriter; do
+	sed -i "s|^;extension="$i".so|extension="$i".so|" $PHP_CONF
+done
+
+# allow more than 32MB for PHP: Allowed memory size of 33554432 bytes exhausted...
+# and bigger uploads
+sed -i -e 's/^memory_limit.*/memory_limit = 64M/' \
+	-e 's/^post_max_size.*/post_max_size = 100M/' \
+	-e 's/^upload_max_filesize.*/upload_max_filesize = 100M/' $PHP_CONF
+
+# enable lighttpd CGI
+sed -i 's|.*\(include.*fastcgi.conf.*\)|\1|' $CONF_LIGHTY2
+
+# Disable access to data folder and directory listing
+sed -i 's|.*\(include.*owncloud.conf.*\)|\1|' $CONF_LIGHTY
+
+# change number of max-procs in /etc/lighttpd/conf.d/fastcgi.conf to 6
+sed -i '/^ *"max-procs"/s|"max-procs" => 1,|"max-procs" => 4,|' $CONF_LIGHTY3
+
+# disable owncloud locale checking
+sed -i '/OC_Util::isSetLocaleWorking/,/}/s|.*|#&|' $OC_DIR/lib/private/util.php
+
+if test -n $"lighty"; then
+	rclighttpd start >& /dev/null
+fi

@@ -1,0 +1,8 @@
+config BR2_PACKAGE_MC
+	bool "mc"
+	select BR2_PACKAGE_LIBGLIB2
+	select BR2_PACKAGE_SLANG
+	help
+	  Midnight Commander is a text-mode file manager.
+
+	  http://www.midnight-commander.org

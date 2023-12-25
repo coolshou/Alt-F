@@ -1,0 +1,78 @@
+#!/bin/sh -e
+
+NAME=minidlna
+DESC="MiniDLNA is a DLNA/UPnP-AV server."
+TYPE=user
+NEED_ALTF_DIR=1
+
+CONF_MINIDLNA=/etc/$NAME.conf
+LOG_MINIDLNA=/var/log/$NAME
+RUN_MINIDLNA=/var/run/$NAME
+
+RC_USER=$NAME
+RC_USERN=11
+RC_GROUP=multimedia
+RC_GROUPN=80
+RC_DESC="minidlna daemon"
+
+RC_PIDFILE=$RUN_MINIDLNA/$NAME.pid
+
+MINIDLNA_ARGS=""
+
+. /etc/init.d/common
+
+check_shares() {
+	if test -r "$CONF_MINIDLNA"; then
+		if grep -q '^#force_rescan=yes' $CONF_MINIDLNA; then
+			RESCAN="-r"
+		fi
+		if grep -q '^#force_rebuild=yes' $CONF_MINIDLNA; then
+			REBUILD="-R"
+		fi
+
+		MDLNA_DIR="$(awk -F= '/^media_dir/{printf "%s;", $2}' $CONF_MINIDLNA)"
+		OIFS="$IFS"; IFS=";"
+		for i in $MDLNA_DIR; do
+			if echo $i | grep -q ^/ ; then
+				mdir=$i
+			else
+				mdir=${i:2}
+			fi
+
+			if ! test -d "$mdir"; then
+				echo "$NAME: Share $mdir does not exists."
+				exit 1
+			else
+				conf_ok="yes"
+			fi
+		done
+		IFS="$OIFS"
+		if test -z "$conf_ok"; then
+			echo "$NAME: can't be started, no shares are configured." 
+			exit 1
+		fi
+		return 0
+	fi
+	echo "$NAME: Configuration file does not exists."
+	exit 1
+}
+
+mkdir -p $RUN_MINIDLNA $LOG_MINIDLNA
+
+check_user $CONF_MINIDLNA /var/lib/$RC_USER $RUN_MINIDLNA $LOG_MINIDLNA
+
+case "$1" in
+	start)
+		check_shares
+		start $NAME --chuid $RC_USER:$RC_GROUP -- $RESCAN $REBUILD $MINIDLNA_ARGS 
+		;;
+
+	stop) stop $NAME ;;
+	status)	status $NAME ;;
+	reload) reload $NAME 1 ;;
+	restart) restart $NAME ;;
+	*)
+		echo "Usage: $0 {start|stop|status|reload|restart}"
+		exit 1
+		;;
+esac

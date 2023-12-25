@@ -1,0 +1,9 @@
+Package: python
+Description: The python language interpreter.
+Version: 2.7.14
+Depends: ncurses, ncurses-panel, readline, gettext, expat, sqlite, db, gdbm, bzip2, libffi
+Architecture: arm
+Priority: optional
+Section: interpreters
+Source: http://www.python.org/
+Maintainer: jcard

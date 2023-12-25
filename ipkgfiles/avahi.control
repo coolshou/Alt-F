@@ -1,0 +1,9 @@
+Package: avahi
+Version: 0.6.31-2
+Depends: libglib2, dbus, libdaemon, ipkg
+Description: A system which facilitates service discovery on a local network.
+Architecture: arm
+Priority: optional
+Section: networking
+Source: http://www.avahi.org
+Maintainer: jcard

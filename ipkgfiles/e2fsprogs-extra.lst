@@ -1,0 +1,13 @@
+./usr/lib/libss.so
+./usr/lib/libss.so.2
+./usr/lib/libss.so.2.0
+./usr/sbin/badblocks
+./usr/sbin/debugfs
+./usr/sbin/dumpe2fs
+./usr/sbin/e2freefrag
+./usr/sbin/e2image
+./usr/sbin/e2undo
+./usr/sbin/filefrag
+./usr/sbin/findfs
+./usr/sbin/logsave
+./usr/sbin/uuidd

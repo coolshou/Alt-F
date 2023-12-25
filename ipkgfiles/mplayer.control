@@ -1,0 +1,9 @@
+Package: mplayer
+Version: 1.0rc2-4
+Depends: libpng, jpeg, libmad, libtheora, lame, ipkg
+Description: A movie player which supports many different file formats. mencoder is a movie encoder.
+Architecture: arm
+Priority: optional
+Section: admin
+Source: http://www.mplayerhq.hu/
+Maintainer: jcard

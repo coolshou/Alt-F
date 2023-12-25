@@ -1,0 +1,115 @@
+#!/bin/sh
+
+# udhcpc script edited by Tim Riker <Tim@Rikers.org>
+# heavily modified for Alt-F by jcard
+
+[ -z "$1" ] && logger -st udhcpc "$0: Error, should be called from udhcpc" && exit 1
+
+#debug=true
+MODFILES="/etc/hosts /etc/resolv.conf /etc/samba/smb.conf /etc/httpd.conf"
+
+# record current date on modifiable files
+for i in $MODFILES; do
+	if test -f $i; then
+		touch -r $i /tmp/$(basename $i)
+	fi
+done
+
+RESOLV_CONF="/etc/resolv.conf"
+[ -n "$broadcast" ] && BROADCAST="broadcast $broadcast"
+[ -n "$subnet" ] && NETMASK="netmask $subnet"
+
+case "$1" in
+	deconfig)
+		logger -st udhcpc "Deconfiguring $interface"
+		/sbin/ifconfig $interface 0.0.0.0
+		;;
+
+	renew|bound)
+		if test -n "$debug"; then
+			logger -st udhcpc "udhcpc args: $*"
+			logger -st udhcpc "udhcpc environment:"
+			for i in $(env); do logger -st udhcpc "   $i"; done
+		else
+			logger -st udhcpc "Renew: Using $ip for $lease seconds"
+		fi
+
+		# evaluate NETWORK
+		eval $(ipcalc -n $ip $subnet)
+
+		if test -z "$domain"; then domain="localnet"; fi
+
+		if test -n "$mtu"; then MTU="mtu $mtu"
+		elif test -n "$IF_MTU"; then MTU="mtu $IF_MTU"
+		else MTU="mtu 1500"
+		fi
+
+		/sbin/ifconfig $interface $ip $BROADCAST $NETMASK $MTU
+
+		hname=$(hostname)
+		logger -st udhcpc "Updating /etc/hosts: $ip $hname.$domain $hname"
+		if fnm=$(hostname -f); then
+			sed -i '/^[^#].*'$fnm'/d' /etc/hosts
+		fi
+		echo -ne "$ip\t$hname.$domain\t$hname\n" >> /etc/hosts
+
+		logger -st udhcpc "Updating /etc/httpd.conf: allow $NETWORK/$subnet"
+		sed -i "s|^A:.*#!# Allow local net.*$|A:$NETWORK/$subnet #!# Allow local net|" /etc/httpd.conf
+
+		logger -st udhcpc "Updating /etc/samba/smb.conf: allow $NETWORK/${subnet}"
+		sed -i "s|hosts allow = \([^ ]*\) \([^ ]*\)\(.*$\)|hosts allow = 127. $NETWORK/${subnet}\3|" /etc/samba/smb.conf
+		
+		if test -n "$router"; then
+			while route del default gw 0.0.0.0 dev $interface 2>/dev/null; do true; done
+			msg="adding route"
+			for i in $router ; do
+				msg="$msg $i"
+				route add default gw $i dev $interface
+			done
+			logger -st udhcpc "Updating $interface default route: $msg"
+		fi
+
+		DNSMASQ_R=/etc/dnsmasq-resolv
+		FLG_MSG="#!in use by dnsmasq, don't change"
+		if grep -q "$FLG_MSG" $RESOLV_CONF; then
+			cmt="#!"; ldns="nameserver 127.0.0.1"; dnsmasq_flg=1
+		else
+			cmt=""; ldns=""; FLG_MSG=""
+		fi
+
+		echo -n > $RESOLV_CONF-
+		echo $FLG_MSG >> $RESOLV_CONF-
+		echo search $domain >> $RESOLV_CONF-
+		echo $ldns >> $RESOLV_CONF-
+		sed -i '/#!# DHCP/d' $RESOLV_CONF
+		sed -n "/^${cmt}nameserver/p"  $RESOLV_CONF >> $RESOLV_CONF-
+		msg="adding nameserver"
+		for i in $dns ; do
+			msg="$msg $i"
+			sed -i "/[[:space:]]$i[[:space:]]*/d" $RESOLV_CONF-
+			echo "${cmt}nameserver $i #!# DHCP" >> $RESOLV_CONF-
+		done
+		mv $RESOLV_CONF- $RESOLV_CONF
+
+		if test -n "$dnsmasq_flg"; then
+			cp $RESOLV_CONF $DNSMASQ_R
+			sed -i -e "/$FLG_MSG/d" -e "/127.0.0.1/d" -e 's/^#!//' 	$DNSMASQ_R
+			if rcdnsmasq status >& /dev/null; then
+				rcdnsmasq reload  >& /dev/null
+			fi
+		fi
+
+		logger -st udhcpc "Updating $RESOLV_CONF: $msg"
+		;;
+esac
+
+# recover dates on modified files
+for i in $MODFILES; do
+	tfile=/tmp/$(basename $i)
+	if test -f $i -a -f $tfile; then
+		touch -r $tfile $i
+		rm $tfile
+	fi
+done
+
+exit 0

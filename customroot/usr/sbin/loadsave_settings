@@ -1,0 +1,465 @@
+#!/bin/sh
+
+format() {
+	if test "$fs_type" = "minix"; then
+		mkfs.minix -i 64 $MTD
+	elif test "$fs_type" = "jffs2"; then
+		flash_erase -j $MTDR 0 0
+	elif test "$fs_type" = "ubifs"; then
+		# FIXME: should a full (bellow) be done instead?
+		# Yes, it has. The 327L has already been ubiformated/ubimkvol.
+		# D-LINK just uses 'ubimkvol /dev/ubi0 -N config -s %siB'
+		# ubidetach -p /dev/mtd5
+		# ubiformat -y -s 512 /dev/mtd5 # format with sub-page of 512bytes
+		# ubiattach -d 0 -p /dev/mtd5 # attach ubi device 0, /dev/ubi0
+		# ubimkvol /dev/ubi0 -m -n 0 -N config # create a maximum sized volume 0, /dev/ubi0_0
+		ubiupdatevol -t $MTD # wipeout created volume on /dev/ubi0_0
+		# create empty fs, 80 LEB sized,  126976 bytes per LEB, on /dev/ubi0_0
+		mkfs.ubifs -m 2048 -e 126976 -c 80 $MTD
+	else
+		exit 1
+	fi
+	st=$?
+	rm -f $stamp
+	return $st
+}
+
+check() {
+	if test "$fs_type" = "minix"; then
+		if ! fsck -t minix -a $MTD >& /dev/null; then
+			echo "loadsave_settings: $MTD damaged, force fsck it."
+			if ! fsck -t minix -af $MTD; then
+				echo "loadsave_settings: Can't fix $MTD, reformating it."
+				format
+			fi
+		fi
+	fi
+}
+
+lmount() {
+	check
+
+	if ! mount -t $fs_type $MTD $save_dir; then
+		rmdir $save_dir
+		exit 1
+	fi
+}
+
+lumount() {
+	umount $save_dir
+}
+
+set_fsckboot() {
+	lmount
+	touch $save_dir/fsckboot
+	lumount
+}
+
+# remove fsckboot if it exists and return 0
+get_fsckboot() {
+	lmount
+	rm $save_dir/fsckboot 2>/dev/null
+	st=$?
+	lumount
+	return $st
+}
+
+# save random-seed
+set_random() {
+	lmount
+	if test -f /var/lib/misc/random-seed; then
+		cp -f /var/lib/misc/random-seed $save_dir/random-seed
+	fi
+	lumount
+}
+
+# get random-seed
+get_random() {
+	lmount
+	if test -s $save_dir/random-seed; then
+		cp $save_dir/random-seed /var/lib/misc/random-seed
+	fi
+	lumount
+}
+
+listchanged() {
+	for i in $files /etc/fstab /var/spool/cron/crontabs/root; do
+		if test $i -nt $stamp; then
+			echo -n "$i "
+		fi
+	done
+
+	for i in /etc/init.d/S*; do
+		# FIXME chmod doesnt change date, and stat is buggy
+		if test $i -nt $stamp; then 
+			echo -n "$i "
+		fi
+	done
+	echo
+}
+
+status() {
+	save=0
+	if ! test -e $stamp; then
+		save=1
+	else
+		for i in $files /etc/fstab /var/spool/cron/crontabs/root; do
+			if test $i -nt $stamp; then
+				save=1
+				break
+			fi
+		done
+
+		for i in /etc/init.d/S*; do
+			# FIXME chmod doesnt change date, and stat is buggy
+			if test $i -nt $stamp; then 
+				save=1
+				break
+			fi
+		done
+	fi
+
+	if test $save = "0"; then
+		echo "No modified files since last save."
+	fi
+
+	return $save
+}
+
+createdef() {
+	for i in /etc/init.d/S*; do
+		if test -x $i -o -n "$(grep ^TYPE=required $i)"; then
+			echo $i
+		fi
+	done > $initscripts_perms
+
+# find modified firmware initscripts. Don't use, dangerous for system boot
+#	for i in $(find /rootmnt/ro/etc/init.d/ /rootmnt/sqimage/etc/init.d/ -name S[0-9]\* 2> /dev/null); do
+#		f=$(echo $i | sed "s|^/rootmnt/[^/]*/||")
+#		if ! cmp -s $i /$f; then
+#			diff -u $i /$f
+#		fi
+#	done > $initscripts_patch
+
+	# special case, only save nfs, cifs and davfs mounts, as other entries are hotpluged
+	awk '$3 == "nfs" {print $0} $3 == "cifs" {print $0} $3 == "davfs" {print $0}' /etc/fstab > /tmp/xfstab
+
+	# another special case, only save user cron entries, not Alt-F ones
+	sed '/#!# Alt-F cron/d' /var/spool/cron/crontabs/root > /tmp/ucron 2> /dev/null
+
+	files="$files /tmp/xfstab /tmp/ucron $initscripts_patch $initscripts_perms"
+
+	dt=$(date +%F_%T)
+	nm=set_$dt.tgz
+	tar -czf /tmp/$nm $files >& /dev/null
+	rm -f /tmp/xfstab /tmp/ucron $initscripts_patch $initscripts_perms
+	echo $nm
+}
+
+saveflashdef() { 
+	if status; then return 1; fi
+
+	lmount
+	rm -f system.log
+
+	nm=$(createdef)
+	cp /tmp/$nm $save_dir/ 2>/dev/null
+	res=$?
+
+	cnt=5
+	while test "$res" != 0 -a "$cnt" -gt 0; do
+		cnt=$((cnt-1))
+		rm $save_dir/$nm $(ls $save_dir/set_*.tgz | head -1) >& /dev/null
+		cp /tmp/$nm $save_dir/ 2>/dev/null
+		res=$?
+	done
+
+	# remove all but last 10
+	a=$(ls $save_dir/set_*.tgz)
+	rm -f $(echo "$a" | head -$(expr $(echo "$a" | wc -l) - 10) 2> /dev/null )
+
+	lumount
+
+# TODO start using mtdblock1 when mtdblock0 fails
+
+	rm /tmp/$nm
+
+	if test "$res" != 0; then
+		echo "Error saving settings, not enough flash space available.\nYou might want to clear settings first."
+		return 1
+	fi
+
+	touch $stamp
+}
+
+checkfile() {
+	TD=$(mktemp -d)
+
+	if ! tar -C $TD -xzf $1; then ret=1; fi
+
+	rm -rf $TD
+	return $ret
+}
+
+loadflashdef() {
+	lmount
+
+	if test $# = 0; then
+		last=$(ls $save_dir/set_* | tail -1) > /dev/null 2>&1 
+	elif ! test -f "$1"; then
+		last=$save_dir/$1
+	else
+		last="$1"	
+	fi
+
+	lf=$(basename $last 2> /dev/null)
+	if test -z "$last" -o ! -f "$last" -o ! -s "$last"; then
+		echo "loadsave_settings: empty or no file $lf found!"
+		res=1
+	elif ! checkfile $last; then
+		echo "loadsave_settings: invalid $lf settings file."
+		res=1
+	else
+		echo "loadsave_settings: loaded $lf settings file."
+		tar -C / -xzf $last
+		res=$?
+		# special nfs, cifs, davfs cases
+		TF=$(mktemp)
+		cat /tmp/xfstab /etc/fstab | sort -u > $TF
+		mv $TF /etc/fstab
+		rm /tmp/xfstab
+
+		if test -f /var/spool/cron/crontabs/root; then
+			TF=$(mktemp)
+			cat /tmp/ucron /var/spool/cron/crontabs/root | sort -u > $TF
+			mv $TF /var/spool/cron/crontabs/root
+			rm /tmp/ucron
+		else
+			mkdir -p /var/spool/cron/crontabs
+			mv /tmp/ucron /var/spool/cron/crontabs/root
+		fi
+
+		# there are several configuration files that would require services to reload them,
+		# such as inetd, samba, nfs... etc. This is not important at boot, only when the user
+		# loads a settings file when the box is already running. call 'rcall restart' 
+	fi
+
+	lumount
+
+	if test -s $initscripts_perms; then
+		for i in /etc/init.d/S*; do
+			if ! grep -q ^TYPE=required $i; then
+				chmod -x $i
+			fi
+		done
+		for i in $(cat $initscripts_perms ); do
+			if test -f $i; then
+				chmod +x $i
+			fi
+		done
+		rm -f $initscripts_perms
+	fi
+
+# not in use, see createdef() above
+#	if test -s $initscripts_patch; then
+#		patch -Np0 < $initscripts_patch >& /dev/null
+#		rm -f $initscripts_patch
+#	fi
+
+	touch $stamp
+	return $res
+}
+
+# including stock firmware setings! 
+clearflashdef() {
+	lmount
+	rm -rf $save_dir/*
+	rm -f $stamp
+	lumount
+}
+
+# copy from mtd1 to mtd0 (NOT for the DNS-320/325/327)
+# The vendors settings are saved in mtd0 and mtd1, one being the backup of the other
+# As Alt-F only uses mtd0, the original settings are still in mtd1 
+recover() {
+	rmdir $save_dir
+	if grep -qE "DNS-320-[AB]x|DNS-320L-Ax|DNS-325-Ax|DNS-327L-Ax" $BRD; then return 1; fi
+ 
+	mtd0=$(mktemp -d)
+	mtd1=$(mktemp -d)
+
+	if ! mount /dev/mtdblock0 $mtd0; then exit 1; fi
+	if ! mount -r /dev/mtdblock1 $mtd1; then umount $mtd0; exit 1; fi
+
+	rm -f $mtd0/*
+	cp -a $mtd1/* $mtd0 	
+
+	umount $mtd0
+	umount $mtd1
+	rmdir $mtd0 $mtd1
+	rm -f $stamp
+}
+
+listflashdef() {
+	lmount > /dev/null
+	(cd $save_dir; ls -1 set_* 2>/dev/null)
+	lumount
+}
+
+llistflashdef() {
+	lmount > /dev/null
+	(cd $save_dir; ls -l set_* 2>/dev/null)
+	lumount
+}
+
+# from http://bugs.debian.org/cgi-bin/bugreport.cgi?msg=30;filename=oldsys-preseed.patch;att=1;bug=502821
+# Parse the sib.conf file, as found in the Dlink DNS-323
+# Get the value from a string in the form of var = "value" from a file.
+# Named for the sib.conf file on the DNS-323 that this function was
+# originally written for.
+# $1 = file to read
+# $2 = var to read
+get_sib_var() {
+	grep "^$2[[:space:]]*=" $1 | \
+		sed "s/^$2[[:space:]]*=[[:space:]]*\"\(.*\)\"[[:space:]]*$/\1/"
+}
+ 
+# from http://bugs.debian.org/cgi-bin/bugreport.cgi?msg=30;filename=oldsys-preseed.patch;att=1;bug=502821
+# Parse the sib.conf file, as found in the Dlink DNS-323
+# $1 = path to sib.conf
+parse_sib_conf() {
+	if [ "$(get_sib_var "$1" "CF-IP-DHCP-ENABLE")" != "0" ]; then
+		return 1
+	fi
+
+	IPADDRESS="$(get_sib_var "$1" "CF-IP-STATIC-IP")"
+	NETMASK="$(get_sib_var "$1" "CF-IP-STATIC-IP-NETMASK")"
+	GATEWAY="$(get_sib_var "$1" "CF-IP-STATIC-IP-GATEWAY")"
+	NS1="$(get_sib_var "$1" "CF-IP-DNS1")"
+	NS2="$(get_sib_var "$1" "CF-IP-DNS2")"
+	HOSTNAME="$(get_sib_var "$1" "CF-SYS-MODEL-STR")"
+	return 0
+}
+
+read_sib() {
+	lmount
+	if ! test -e $save_dir/$sib; then
+		echo "No sib.conf file"
+		lumount
+		return 1
+	fi
+
+	DOMAIN=$(awk '/^workgroup/{print $3}' $save_dir/smb.default)
+	parse_sib_conf $save_dir/$sib
+	st=$?
+
+	lumount
+
+	if test $st = 0; then
+		echo "ip=$IPADDRESS; mask=$NETMASK; gw=$GATEWAY; \
+			ns1=$NS1; ns2=$NS2; host=$HOSTNAME; domain=$DOMAIN"
+	fi
+	return $st
+}
+
+# When a pen/disk is inserted, the current box settings must overwrite the ones
+# existing in the pen/disk, and the reverse must happen when the pen/disk is removed.
+# As the pen/disk is the top priority union branch, new or modified files are stored there
+
+# Copy current box settings to /Alt-F dir.
+# Used after mounting Alt-F dir but before adding it to the union.
+to_AltF() {
+	wfiles="$files /etc/fstab /etc/bay"
+	for i in $wfiles; do
+		if test -s $i -a -e /Alt-F/$i; then
+#			cp -a $i /Alt-F/$i # no need to copy, they will be copied when changed/created
+#		elif test -e /Alt-F/$i; then
+			rm -f /Alt-F/$i # remove old, probably outdated, files
+		fi 
+	done
+}
+
+# Copy current box settings in /Alt-F to RAM root dir
+# Used after removing Alt-F from the union but before unmounting it
+from_AltF() {
+	wfiles="$files /etc/fstab /etc/bay"
+	for i in $wfiles; do
+		if test -s /Alt-F/$i; then
+			bd=$(dirname $i)
+			if ! test -d $bd; then mkdir -p $bd; fi
+			cp /Alt-F/$i $i # dont remove, copy instead, in case of catastrophic failure
+			#rm /Alt-F/$i
+		fi
+	done
+}
+
+usage() {
+	echo -e "usage: loadsave_settings \n\
+	-lf [file] (load flash) | -sf (save flash) | -cs (create settings file) | \n\
+	-cf (clear flash) | -rc (recover from backup) | \n\
+	-ls (list saved) | -ll (long list saved) | -lc (list changed) | \n\
+	-ta (to Alt-F) | -fa (from Alt-F) | \n\
+	-gb (get fsckboot) | -sb (set fsckboot) | \n\
+	-gr (get random-seed) | -sr (set random-seed) | \n\
+	-rs (read sib ip) | -st (status) | -ck (check) | -fm (format)"
+	return 1;
+}
+
+save_dir=$(mktemp -d)
+stamp=/tmp/settings_saved
+initscripts_perms=/tmp/initd_perms
+initscripts_patch=/tmp/initd_patch
+sib=sib.conf
+
+# configuration files to save on flash. Can't save file itself in flash, as aufs saved will overwrite fw changed
+files=$(cat /etc/settings)
+
+board=$(cat /tmp/board)
+case "$board" in
+	DNS-320-[AB]x|DNS-320L-Ax|DNS-325-Ax)
+		fs_type="jffs2"
+		MTD=/dev/mtdblock5
+		MTDR=/dev/mtd5
+		;;
+	qemu|DNS-323-[ABC]1|DNS-321-Ax)
+		fs_type="minix"
+		MTD=/dev/mtdblock0
+		;;
+	DNS-327L-Ax)
+		fs_type="ubifs"
+		MTD=/dev/ubi0_0
+		;;		
+	*)
+		echo "Unsupported board"
+		exit 1
+		;;
+esac
+
+case $1 in
+	"-ls") 	listflashdef ;;
+	"-ll")	llistflashdef ;;
+	"-lc")	listchanged ;;
+	"-sf")	saveflashdef ;;
+	"-lf")	arg=""
+		if test $# = 2; then arg=$2; fi
+		loadflashdef $arg
+		;;
+	"-cs")	createdef ;;
+	"-cf")	clearflashdef ;;
+	"-rc")	recover ;;
+	"-ta")	to_AltF ;;
+	"-fa")	from_AltF ;;
+	"-sb")  set_fsckboot ;;
+	"-gb") 	get_fsckboot ;;
+	"-sr")	set_random ;;
+	"-gr")	get_random ;;
+	"-rs")	read_sib ;;
+	"-st")	status ;;
+	"-ck")	check ;;
+	"-fm")	format ;;
+	*)	usage ;;
+esac
+
+st=$?
+rmdir $save_dir >& /dev/null
+return $st

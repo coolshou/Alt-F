@@ -1,0 +1,38 @@
+#!/bin/sh
+
+DESC="Manages LVM device mapper modules"
+NAME=device-mapper
+
+umask 077
+
+. /etc/init.d/common
+
+case "$1" in
+	start)
+		echo -n "Starting $NAME: "
+		if ! lsmod | grep -q ^dm_mod; then
+			modprobe -q dm-mod
+		fi
+		omsg $?
+		;;
+
+	stop)
+		if ! lsmod | grep -q ^dm_mod; then
+			omsg 0
+			return 0
+		fi
+		echo -n "Stopping $NAME: "
+		modprobe -qr dm_snapshot dm_mirror dm_region_hash dm_log dm_mod
+		omsg $?
+		;;
+
+	status)
+		if lsmod | grep -q ^dm_mod; then
+			echo $NAME running
+		else
+			echo $NAME stopped
+			return 1
+		fi
+		;;
+	*)  usage $0 "start|stop|status" ;;
+esac

@@ -1,0 +1,16 @@
+./etc/init.d/S11sslcert
+./etc/init.d/S31cacert
+./etc/ssl/ca-bundle.crt
+./etc/ssl/ca-bundle.pem
+./etc/ssl/cert.pem
+./etc/ssl/dhparam.pem
+./etc/ssl/openssl.cnf
+./etc/ssl/server.cnf
+./usr/bin/openssl
+./usr/bin/update_ca.sh
+./usr/lib/libcrypto.so
+./usr/lib/libcrypto.so.1.1
+./usr/lib/libssl.so
+./usr/lib/libssl.so.1.1
+./usr/www/cgi-bin/certs.cgi
+./usr/www/cgi-bin/certs_proc.cgi

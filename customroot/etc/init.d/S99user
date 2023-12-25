@@ -1,0 +1,156 @@
+#!/bin/sh
+
+DESC="Create diagnostics file and run user script"
+TYPE=user
+NAME=user
+
+CONF_MISC=/etc/misc.conf
+USERLOCK=/var/lock/userscript
+
+# inspired by "nogi"
+LOGF="alt-f.log"
+SEP="======================"
+
+. /etc/init.d/common
+
+bootlog() {
+	TLOG=/tmp/$LOGF
+	writelog | sed 's/..:..:..\(:..:..:..\)/xx:xx:xx\1/' > $TLOG
+	for i in /mnt/*; do
+		if mountpoint -q $i; then
+			if test -f $i/$LOGF; then
+				mv -f $i/$LOGF $i/$LOGF-previous
+			fi
+			cp $TLOG $i/$LOGF
+			chmod a+rw $i/$LOGF
+		fi
+	done
+	#rm $TLOG
+}
+
+writelog() {
+	echo -e "$SEP Alt-F $(cat /etc/Alt-F) $SEP\n"
+	date 
+
+	echo -e "\n\n$SEP BOARD $SEP\n" 
+	cat /tmp/board
+
+	echo -e "\n\n$SEP CPU $SEP\n"
+	cat /proc/cpuinfo
+
+	echo -e "\n\n$SEP Flashed Firmware $SEP\n"
+	dd if=/dev/mtdblock2 ibs=64 count=1 2> /dev/null | strings
+
+	echo -e "\n\n$SEP DMESG $SEP\n"
+	dmesg
+
+	echo -e "\n\n$SEP SYSLOG $SEP\n"
+	logread
+
+	if test -f /usr/sbin/ethtool; then
+		echo -e "\n\n$SEP ETHTOOL $SEP\n"
+		ethtool eth0
+	fi
+
+	echo -e "\n\n$SEP IFCONFIG $SEP\n"
+	ifconfig
+
+	echo -e "\n\n$SEP ROUTE $SEP\n"
+	route -n
+
+	echo -e "\n\n$SEP RESOLVER $SEP\n"
+	cat /etc/resolv.conf
+
+	echo -e "\n\n$SEP HOSTS $SEP\n"
+	cat /etc/hosts
+
+	echo -e "\n\n$SEP DISKS (MBR) $SEP\n"
+	sfdisk -luS
+
+	echo -e "\n\n$SEP DISKS (GPT) $SEP\n"
+	for j in $(ls /dev/sd? 2>/dev/null); do
+		sgdisk -p $j
+	done
+
+	echo -e "\n\n$SEP BLOCKID $SEP\n"
+	blkid
+
+	echo -e "\n\n$SEP RAID $SEP\n"
+	if test -f /proc/mdstat; then
+		cat /proc/mdstat
+		echo
+		mdadm --examine --scan --verbose --verbose --config=partitions 2> /dev/null
+	else
+		echo None 
+	fi
+
+	echo -e "\n\n$SEP SWAP $SEP\n"
+	cat /proc/swaps
+
+	echo -e "\n\n$SEP MOUNT $SEP\n"
+	cat /proc/mounts
+
+	echo -e "\n\n$SEP FS $SEP\n"
+	df -h
+
+	echo -e "\n\n$SEP AUFS $SEP\n"
+	aufs.sh -l
+
+	echo -e "\n\n$SEP SERVICES $SEP\n"
+	rcall status 2>&1
+
+	echo -e "\n\n$SEP INETD SERVICES $SEP\n"
+	cat /etc/inetd.conf
+
+	echo -e "\n\n$SEP TOP $SEP\n"
+	top -bn1
+
+	echo -e "\n\n$SEP FREE $SEP\n"
+	free
+}
+
+if test -s "$CONF_MISC"; then
+	. $CONF_MISC
+else
+	USER_LOGFILE="yes"
+fi
+
+case "$1" in
+	start)
+		echo -n "Starting $NAME: "
+
+		if ! test "$USER_LOGFILE" = "no"; then
+			bootlog
+		fi
+
+		if test -x "$USER_SCRIPT" -a ! -f $USERLOCK; then
+			touch $USERLOCK
+			$USER_SCRIPT start &
+		fi
+
+		echo "OK."
+		;;
+
+	stop)
+		echo -n "Stopping $NAME: "
+		if test -x "$USER_SCRIPT" -a -f $USERLOCK; then
+			$USER_SCRIPT stop &
+			rm $USERLOCK
+		fi
+		echo "OK."
+		;;
+
+	status)
+		if test -x "$USER_SCRIPT" -a -f $USERLOCK; then
+			echo "$NAME started."
+		else
+			echo "$NAME stopped."
+			exit 1
+		fi
+		;;
+
+	restart) restart $NAME
+		;;
+
+	*) usage $0 "start|stop|status|restart" ;;
+esac

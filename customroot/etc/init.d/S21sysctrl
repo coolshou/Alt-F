@@ -1,0 +1,21 @@
+#!/bin/sh
+
+DESC="fan/temperature/buttons/sleep/MD Daemon"
+NAME=sysctrl
+TYPE=sys
+
+umask 077
+
+. /etc/init.d/common
+
+# avoid devtmpfs to remove device node on reboot/powerdown
+touch /dev/event0
+
+case "$1" in
+	start) start $NAME ;;
+	stop)	stop $NAME ;;
+	status)	status $NAME ;;
+	reload) reload $NAME ;;
+	restart) restart $NAME ;;
+	*)  usage $0 "start|stop|status|restart|reload" ;;
+esac

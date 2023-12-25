@@ -1,0 +1,49 @@
+#!/bin/sh -e
+
+NAME=ushare
+DAEMON=/usr/bin/$NAME
+DESC="GeeXboX uShare, A free UPnP A/V & DLNA Media Server for Linux"
+TYPE=user
+NEED_ALTF_DIR=1
+
+PIDFILE=/var/run/$NAME.pid
+CONFIGFILE=/etc/$NAME.conf
+#USHARE_OPTIONS=
+
+RC_USER=ushare
+RC_USERN=10
+RC_GROUP=multimedia
+RC_GROUPN=80
+RC_DESC="uShare daemon"
+
+RC_START_BG=yes
+RC_PIDFILE=$PIDFILE
+RC_MAKE_PID=yes
+
+. /etc/init.d/common
+
+check_shares() {
+	if test -r "$CONFIGFILE"; then
+		USHARE_DIR="$(awk -F= '/^USHARE_DIR/{print $2}' $CONFIGFILE)"
+		if test -n "$USHARE_DIR"; then
+			return 0
+		fi
+	fi
+	echo "uShare: No shares available, exiting"
+	exit 1
+}
+
+check_user $CONFIGFILE
+
+case "$1" in
+	start)
+		check_shares
+		start $NAME --chuid $RC_USER:$RC_GROUP -- $USHARE_OPTIONS
+		;;
+
+	stop) stop $NAME 2 ;;
+	status) status $NAME ;;	
+	restart) restart $NAME ;;
+	*) usage $0 "start|stop|status|restart|reload" ;;
+esac
+ 

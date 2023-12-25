@@ -1,0 +1,6 @@
+#!/bin/sh
+
+deluser mpd
+delgroup multimedia
+
+rm -f /sbin/rcmpd

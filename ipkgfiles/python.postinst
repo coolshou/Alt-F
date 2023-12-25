@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# because the ipkg order of dependent package postinstall scripts execution is reversed,
+# the duplicity package also execute those
+
+PVER=2.7
+
+# python needs pyconfig.h and Makefile at runtime!
+INCDIR=/usr/include/python$PVER
+CONFDIR=/usr/lib/python$PVER/config
+
+if ! test -f $INCDIR/pyconfig.h -o -f $CONFDIR/Makefile; then
+	mkdir -p $INCDIR $CONFDIR
+	cp /usr/lib/python$PVER/pyconfig.h $INCDIR
+	cp /usr/lib/python$PVER/Makefile $CONFDIR
+fi
+
+echo "Python byte compiling..."
+python -m compileall /usr/lib/python$PVER/ /usr/lib/python$PVER/site-packages >& /dev/null

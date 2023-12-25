@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html><head profile="http://www.w3.org/2005/10/profile">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="icon" type="image/png" href="dns-323.png">
+<title>Login Help</title>
+</head><body>
+
+<center><h2>Login Help</h2></center>
+
+<p>You must authenticate in order to use the administrative pages,
+otherwise you can only see the box status.
+
+<p>Your login will become invalid after thirty minutes of inactivity.
+
+<p>In your first login to Alt-F you have to setup an administrative
+password, and for confirmation you must type it twice.
+The entered password will be the box administrative (the user 'root') password.
+<p>Password can have ASCII letters, numbers and any character from the set <tt>!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~</tt>.
+
+<p>After login, the password can be reset at the <a href="sys_utils_hlp.html">System Utilities</a> web
+page.
+
+<p>You can change the 'root' user password using the command line 'passwd' command, having separate 'root' and web passwords, but if you later change the web password the 'root' password will be overwritten.
+
+<p>After your first login you must follow a first-time setup:
+
+<ul>
+	<li><a href="host_hlp.html">Setup->Host</a> where you can set the box name and its networking settings</li>
+	<li><a href="time_hlp.html">Setup->Time</a> where you can set your local timezone (where you live) and adjust the box RTC (Real Time Clock)</li>
+	<li><a href="diskwiz_hlp.html">Disk->Wizard</a> where you can partition and format all your disks or just keep their current state</li>
+	<li><a href="usersgroups_hlp.html">Setup->Users</a> where you must create the box users accounts</li>
+	<li><a href="settings_hlp.html">System->Settings->Save Settings</a> where you can save your settings in the box flash memory, making them persistent across reboots or poweroff.</li>
+</ul>
+
+After login you can use the following menu structure:
+
+<ul style="font-size:small">
+<li>Logout</li>
+<li>Status: show the current and most important box status</li>
+<li>Setup</li>
+	<ul>
+	<li>Host: set the box name and and its networking settings</li>
+	<li>Time: set your local timezone (where you live) and adjust the box RTC (Real Time Clock)</li>
+	<li>Mail: configure a mail server to receive box notifications</li>
+	<li>Proxy: configure a proxy for the 'wget' application, essential for installing packages</li>
+	<li>Hosts: configure know hosts names and IPs equivalence</li>
+	<li>Users: create, change or delete the box users accounts</li>
+	<li>Debian: install Debian Squeeze on disk, for chroot or kexec it</li>
+	<li>Directories: create, copy, move, delete directories and change its owners and permissions</li>
+	</ul>
+<li>Disk</li>
+	<ul>
+	<li>Utilities: generic disk utilities such as SMART health status, spindown timeout</li>
+	<li>Filesystems: manage filesystems</li>
+	<li>RAID: manage RAID devices</li>
+	<li>Partitioner: partition or partially repartition your disks</li>
+	<li>Wizard: partition and format all your disks</li>
+	</ul>
+<li>Services: you can see, start, stop and configure software services</li>
+	<ul>
+	<li>Network</li>
+		<ul>
+		<li>smb: Samba Server (MS-Windows shares)</li>
+		<li>nfs: Network File System Server (UNIX file sharing)</li>
+		<li>afpd: AppleTalk Filing Protocol </li>
+		<li>avahi_daemon: Avahi mDNS/DNS-SD</li>
+		<li>ddns: Dynamic DNS update</li>
+		<li>ntp: Network Time Protocol</li>
+		<li>dnsmasq: Combined DHCP/DNS/TFTP Server</li>
+		<li>inetd: ssh, telnet, rsync, ftp, http, swat, lpd</li>
+		</ul>
+	<li>System</li>
+		<ul>
+		<li>ffp: Run ffp initialization script</li>
+		<li>cups: The Common UNIX Printing System daemon</li>
+		<li>cleanup: Cleanup (truncate) log files every hour</li>
+		<li>backup: Backup Service</li>
+		<li>mdadm: Monitor RAID devices</li>
+		<li>smart: SMART Disk Monitoring</li>
+		<li>at: run jobs queued for later execution</li>
+		<li>cron: execute scheduled commands</li>
+		<li>sysctrl: fan, temperature, buttons, spindown, RAID state</li>
+		<li>syslog: System and Kernel log</li>
+		</ul>
+	<li>User</li>
+		<ul>
+		<li>user: Create diagnostics file and run user script</li>
+		<li>automatic: RSS downloader that grabs your favorite Transmission torrents</li>
+		<li>transmission: A Fast, Easy and Free Bittorrent client</li>
+		<li>ushare: GeeXboX uShare, A free UPnP A/V &amp; DLNA Media Server for Linux</li>
+		<li>mt_daapd: Media server for the Roku SoundBridge and iTunes</li>
+		<li>minidlna: DLNA/UPnP-AV server</li>
+		<li>mediatomb: A/V UPnP service</li>
+		<li>fuppes: Free UPnP Entertainment Service</li>
+		<li>forked_daapd: DAAP and RSP media server (iTunes)</li>
+		</ul>
+	</ul>
+<li>Packages</li>
+	<ul>
+	<li>ffp: install, upgrade and remove fonz fun_plug (ffp) packages</li>
+	<li>Alt-F: install, upgrade and remove Alt-F packages</li>
+	</ul>
+<li>System</li>
+<ul>
+	<li>Utilities: miscellaneous system utilities</li>
+	<li>Settings: save, load, erase settings in flash or computer disk</li>
+	<li>Firmware: flash Alt-F or D-Link firmware</li>
+</ul>
+
+</ul>
+
+<br><button type=button onclick="history.back()">Back</button></body>
+</html>

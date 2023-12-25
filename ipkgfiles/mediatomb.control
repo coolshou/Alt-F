@@ -1,0 +1,9 @@
+Package: mediatomb
+Version: 0.12.1-4
+Depends: sqlite, mysql-libs, ffmpegthumbnailer, expat, file, taglib, ffmpeg, libexif, libcurl, ipkg
+Description: A UPnP MediaServer with a nice web user interface.
+Architecture: arm
+Priority: optional
+Section: upnp-dlna servers
+Source: http://mediatomb.cc
+Maintainer: jcard

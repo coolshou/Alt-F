@@ -1,0 +1,16 @@
+--- gptfdisk-1.0.3/support.h-orig	2018-05-29 19:42:58.317865430 +0100
++++ gptfdisk-1.0.3/support.h	2018-05-29 19:45:09.585393508 +0100
+@@ -10,6 +10,13 @@
+ 
+ #define GPTFDISK_VERSION "1.0.3"
+ 
++// As of 1/2010, BLKPBSZGET is very new, so I'm explicitly defining it if
++// it's not already defined. This should become unnecessary in the future.
++// Note that this is a Linux-only ioctl....
++#ifndef BLKPBSZGET
++#define BLKPBSZGET _IO(0x12,123)
++#endif
++
+ #if defined (__FreeBSD__) || defined (__FreeBSD_kernel__) || defined (__APPLE__)
+ // Darwin (Mac OS) & FreeBSD: disk IOCTLs are different, and there is no lseek64
+ #include <sys/disk.h>

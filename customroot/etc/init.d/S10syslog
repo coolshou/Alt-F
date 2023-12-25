@@ -1,0 +1,51 @@
+#!/bin/sh
+#
+# Starts syslog.
+#
+
+DESC="System and Kernel log Daemon"
+NAME=syslogd
+NAME1=klogd
+TYPE=sys
+CONFF=/etc/syslog.conf
+
+umask 077
+
+. /etc/init.d/common
+
+PARAMS="-C -m 0"
+
+case "$1" in
+	start)
+		if test -e $CONFF; then
+			. $CONFF
+		else
+			PARAMS="$PARAMS -D"
+		fi
+		if test -n "$log_remote"; then
+			if test -n "$log_internal"; then
+				PARAMS="$PARAMS -L"
+			fi
+			PARAMS="$PARAMS -R $log_remote_host:$log_remote_port"
+		fi
+		if test -n "$log_drop_dups"; then
+			PARAMS="$PARAMS -D"
+		fi
+		if test -n "$log_smaller_output"; then
+			PARAMS="$PARAMS -S"
+		fi
+		start $NAME -- $PARAMS
+		start $NAME1
+		;;
+	stop)
+		stop $NAME1
+		stop $NAME
+		;;
+	status)
+		status $NAME
+		;;
+	restart)
+		restart $NAME
+		;;
+	*) usage $0 "start|stop|status|restart" ;;
+esac

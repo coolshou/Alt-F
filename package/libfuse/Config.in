@@ -1,0 +1,10 @@
+config BR2_PACKAGE_LIBFUSE
+	bool "libfuse"
+	depends on BR2_LARGEFILE
+	help
+	  FUSE (Filesystem in UserSpacE)
+
+	  https://github.com/libfuse/libfuse
+
+comment "libfuse requires a toolchain with LARGEFILE support"
+        depends on !BR2_LARGEFILE

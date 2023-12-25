@@ -1,0 +1,9 @@
+Package: libxml2
+Depends: ipkg
+Version: 2.9.9
+Description: XML C parser and toolkit of Gnome
+Architecture: arm
+Priority: optional
+Section: admin
+Source: http://xmlsoft.org/
+Maintainer: jcard

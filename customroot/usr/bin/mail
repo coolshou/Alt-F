@@ -1,0 +1,55 @@
+#!/bin/sh
+
+#set -x
+
+usage() {
+	echo "Usage: mail [-s subject | -r from_address] to_address
+	Message body is read from standard input, terminate with CTRL-D
+	when writing from the console."
+	exit 1
+}
+
+
+#trap "echo" INTR
+
+TF=$(mktemp -t)
+
+if test $# = 0 -o $# -gt 5 ;then
+	usage
+fi
+
+args=$(getopt -o s:r: -- "$@") 2>/dev/null
+if test $? = 1; then usage; fi
+eval set -- "$args"
+
+for i; do
+	#echo "--> $i"
+	case $i in
+		-s) shift; subj="$1"; shift;;
+		-r) shift; from="$1"; shift;;
+		--) shift; to="$1"; shift;;
+	esac
+done
+
+if test -z "$to"; then usage; fi
+
+if test -z "$from"; then
+	from=$(grep '^from' /etc/msmtprc | cut -f2)	
+fi
+
+exec > $TF
+
+echo "From: $from"
+if test -n "$subj"; then echo "Subject: $subj"; fi
+echo "To: $to"
+echo 
+cat
+echo
+
+echo "Sending..." >/dev/console
+
+msmtp --read-recipients < $TF
+ret=$?
+rm $TF
+
+exit $ret

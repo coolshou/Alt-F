@@ -1,0 +1,3 @@
+./usr/bin/ffmpeg
+./usr/bin/ffprobe
+./usr/bin/ffserver

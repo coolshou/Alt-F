@@ -1,0 +1,9 @@
+#!/bin/sh 
+
+sed -i "\|/usr/sbin/sshd|d" /etc/inetd.conf
+rcinetd reload
+
+update-alternatives --remove scp /usr/bin/scp-openssh
+update-alternatives --remove ssh /usr/bin/ssh-openssh
+
+rm -f /sbin/rcopensshd

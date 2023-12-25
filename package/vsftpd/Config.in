@@ -1,0 +1,12 @@
+config BR2_PACKAGE_VSFTPD
+	bool "vsftpd"
+	select BR2_PACKAGE_OPENSSL
+	help
+	  vsftpd is an ftp daemon written with security in mind.
+	  http://vsftpd.beasts.org/
+
+config BR2_PACKAGE_VSFTPD_OPTIM
+	string "vsftpd optim"
+	depends on BR2_PACKAGE_VSFTPD
+	help
+	  Compile optimization options (-Os, -O2)

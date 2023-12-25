@@ -1,0 +1,27 @@
+root:x:0:
+daemon:x:1:
+bin:x:2:
+sys:x:3:
+adm:x:4:
+tty:x:5:
+disk:x:6:
+ftp:x:7:
+at:x:8:
+#lpadmin 9
+backup:x:34:
+#mysql 35
+utmp:x:43:
+sshd:x:67
+#avahi 68
+#multimedia 80
+#network	81
+netdev:x:82:
+#nut 84 
+nobody:x:98:
+nogroup:x:99:
+users:x:100:
+#TV 200
+#BT 201
+#davfs2 202
+#sync 203
+#shellinaboxd 204

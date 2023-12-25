@@ -1,0 +1,33 @@
+#!/bin/sh
+
+SITE=https://github.com/midgetspy/Sick-Beard/tarball
+TBALL=master
+
+SBPROG=/Alt-F/opt/SickBeard
+SBPROGL=/Alt-F/opt/Sick-Beard
+
+if ! wget --progress=dot:mega -O /tmp/$TBALL $SITE/$TBALL; then
+	rm -f /tmp/$TBALL
+	echo "Downloading of SickBeard from its homepage page failed."
+	exit 1
+fi
+
+mkdir -p $SBPROG
+if ! tar -C /Alt-F/opt -xzf /tmp/$TBALL >& /dev/null; then
+	rm -f /tmp/$TBALL
+	echo "Extraction of SickBeard failed."
+	exit 1
+fi
+rm -f /tmp/$TBALL
+
+if test -d $SBPROGL; then
+	mv $SBPROGL $SBPROG
+fi
+
+cp -a /Alt-F/opt/midgetspy-Sick-Beard-*/* $SBPROG
+rm -rf /Alt-F/opt/midgetspy-Sick-Beard-*
+
+ln -sf /usr/sbin/rcscript /sbin/rcsickbeard
+
+rcsickbeard status # fails (must be configured first), so must return OK for ipk to succeed
+return 0

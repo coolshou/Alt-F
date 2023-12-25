@@ -1,0 +1,10 @@
+Package: gptfdisk-sgdisk
+Description: The sgdisk component of gptfdisk. Needed for greater than 2TB disks
+Version: 1.0.4
+Depends: ipkg, e2fsprogs, popt
+Architecture: arm
+Priority: required
+Section: admin
+Source: http://www.rodsbooks.com/gdisk
+Maintainer: jcard
+Essential: yes

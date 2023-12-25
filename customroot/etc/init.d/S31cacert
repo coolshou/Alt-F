@@ -1,0 +1,87 @@
+#! /bin/sh
+
+DESC="Update CA certificates once a week"
+TYPE=net
+NAME=cacert
+#REQUIRE="cron" doesn't work here
+
+. /etc/init.d/common
+
+CMD="/usr/bin/update_ca.sh"
+
+# icron() to be removed after 1.1. Copied from common:cron()
+CRONF=/var/spool/cron/crontabs/root
+icron() {
+	if test $# = 3; then cmd="$3"; else cmd="$2"; fi
+	if test "$1" = "add"; then
+		TF=$(mktemp -t)
+		crontab -l > $TF 2> /dev/null
+		sed -i "\|$"cmd".*#!# Alt-F cron$|d" $TF
+		if test $# = 3; then
+			tspec="$2"
+		else # once a week
+			dt=$RANDOM
+			min=$((dt % 60))
+			hour=$((dt % 24))
+			wday=$((dt % 7))
+			tspec="$min $hour * * $wday"		
+		fi
+		
+		echo "$tspec $cmd #!# Alt-F cron" >> $TF
+		touch -r $CRONF $TF
+		crontab $TF 2> /dev/null
+		touch -r $TF $CRONF
+		rm $TF
+	
+	elif test "$1" = "remove"; then
+		TF=$(mktemp -t)
+		crontab -l > $TF 2> /dev/null
+		sed -i "\|$2.*#!# Alt-F cron$|d" $TF
+		touch -r $CRONF $TF
+		crontab $TF 2> /dev/null
+		touch -r $TF $CRONF
+		rm $TF
+		
+	elif test "$1" = "status"; then
+		if ! rccron status >& /dev/null; then
+			echo "$NAME stopped"
+			return 1
+		elif crontab -l 2>/dev/null | grep -q "$2.*#!# Alt-F cron$"; then
+			echo "$NAME running"
+			return 0
+		else
+			echo "$NAME stopped"
+			return 1
+		fi		
+	fi
+}
+		
+istart() {
+	if ! readlink -f /Alt-F >& /dev/null; then
+		if ! aufs.sh -s >& /dev/null; then
+			echo -n "$NAME: /Alt-F folder not found, install Alt-F packages."
+			return 1
+		fi
+		aufs.sh -n
+		mkdir -p /Alt-F/etc/ssl
+		aufs.sh -r
+	fi
+}
+
+case "$1" in
+	start)
+		istart $NAME
+		require $NAME cron
+		echo -n "Starting $NAME: "
+		icron add $CMD
+		echo "OK."
+		;;
+	stop)
+		echo -n "Stopping $NAME: "
+		icron remove $CMD
+		echo "OK."
+		;;
+	status) icron status $CMD ;;		
+	restart) restart $NAME ;;
+	*) usage $0 "start|stop|status|restart" ;;
+esac

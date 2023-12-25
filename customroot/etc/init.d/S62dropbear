@@ -1,0 +1,50 @@
+#!/bin/sh
+
+DESC="Light SSH/SFTP server"
+NAME=dropbear
+TYPE=net
+
+. /etc/init.d/common
+
+CONF_SETT=/etc/settings
+DB_DIR=/etc/dropbear
+OPTS=""
+
+sinit() {
+	mkdir -p $DB_DIR
+
+	# generate dropbear keys with default size
+	for i in dss rsa ecdsa ed25519; do
+		if ! test -e $DB_DIR/dropbear_${i}_host_key; then
+			echo "$NAME: generating $i key... "
+			dropbearkey -t $i -f $DB_DIR/dropbear_${i}_host_key >& /dev/null
+		fi
+	done
+	
+	if ! grep -q dropbear_ed25519_host_key $CONF_SETT; then
+		echo -e "$DB_DIR/dropbear_ed25519_host_key\n$CONF_SETT" >> $CONF_SETT
+		sort -u $CONF_SETT -o $CONF_SETT
+	fi
+		
+	umask 077
+}
+
+if test "$1" = "init"; then
+	sinit
+	exit
+fi
+
+if check_inetd ssh dropbear || check_inetd ssh_alt dropbear;then
+	exit 2
+fi
+
+case "$1" in
+	start)
+		sinit
+		start $NAME -- $OPTS
+		;;
+	stop) stop $NAME ;;
+	status)	status $NAME ;;
+	restart) restart $NAME ;;
+	*) usage $0 "start|stop|status|restart|init" ;;
+esac

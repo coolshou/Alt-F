@@ -1,0 +1,38 @@
+[req]
+default_bits = ${ENV::SSL_CERT_BITS}
+distinguished_name = ${ENV::REQNAME}
+x509_extensions = v3_req
+prompt = no
+
+[req_dname]
+O = Alt-F
+OU = ${ENV::BOX}
+CN = ${ENV::HOSTFQDN}
+
+[req_dname_ca]
+O = Alt-F
+CN = Alt-F fake root CA
+
+[v3_req]
+keyUsage = keyEncipherment, dataEncipherment, digitalSignature
+extendedKeyUsage = serverAuth, clientAuth
+basicConstraints = CA:false
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = ${ENV::HOST} # this causes a openssl verification error when nameConstraints is set
+DNS.2 = ${ENV::HOSTFQDN}
+IP.1 = ${ENV::HOSTIP} 
+
+[v3_ca]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer:always
+basicConstraints = critical, CA:true, pathlen:1
+keyUsage = critical, cRLSign, keyCertSign
+#nameConstraints requires using the FQDN, IPs are not supported, dropping!
+#nameConstraints = @name_constraints
+
+[name_constraints]
+permitted;DNS = ${ENV::DOMAIN}	# for some, this is the RFC
+permitted;DNS = .${ENV::DOMAIN} # for others, this is the correct
+#permitted;IP = ${ENV::NETWORK} # openssl doesn't support this

@@ -1,0 +1,13 @@
+config BR2_PACKAGE_WGET
+	bool "wget"
+	select BR2_PACKAGE_OPENSSL
+	help
+	  Network utility to retrieve files from http/ftp/etc...
+
+	  http://wget.sunsite.dk/
+	  
+config BR2_PACKAGE_WGET_OPTIM
+	string "wget optim"
+	depends on BR2_PACKAGE_WGET
+	help
+	  Compile optimization options (-Os, -O2)

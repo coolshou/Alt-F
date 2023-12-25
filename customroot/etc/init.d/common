@@ -1,0 +1,293 @@
+#set -x
+
+# Add "enable" and "disable" options for all scripts.
+# Notice that scripts which set 'umask 077' and are all or group executable
+# can't be boot disabled by the webUI.
+# Notice that S41inetd also uses enable/disable, but with arguments
+if test "$1" = "enable" -a -z "$2" ; then
+	echo "Enabling boot execution of $(basename $0)"
+	chmod +x $0
+	touch $0
+	exit 0
+elif test "$1" = "disable" -a -z "$2" ; then
+	echo "Disabling boot execution of $(basename $0)"
+	chmod -x $0
+	touch $0
+	exit 0
+fi
+
+if test "$NEED_ALTF_DIR" = 1; then
+	srva=$(basename $0); srv=${srva:3}
+	if ! aufs.sh -s >& /dev/null; then
+		logger -st $srv "Alt-F folder not yet available.\n\
+Use menu Packages->Alt-F to install Alt-F packages folder if you have not yet done it."
+		exit 1
+	fi
+fi
+
+# for process match, some processes need -n, the default, others -x
+if test -z "$RC_START_STOP"; then
+	RC_START_STOP=-n
+fi
+
+# some processes don't put themselves into background
+if test -n "$RC_START_BG"; then
+	RC_START_BG=-b
+fi
+
+# some proceeses need special start/stop cmds/args, e.g.
+# RC_START_CMD="start-stop-daemon -S -q -o -b -x $NAME -- $NAME_ARGS"
+# RC_STOP_CMD="start-stop-daemon -stop --signal 2 --quiet --oknodo --pidfile $PIDFILE
+
+AVAHI_SRV_DIR=/etc/avahi/services
+
+# $1-add/remove $2-service name
+avahi() {
+	if ! test -d $AVAHI_SRV_DIR; then return 0; fi
+ 
+	stype=$(sed -n "s|.*<type>\(.*$2.*\)</type>|\1|p" $AVAHI_SRV_DIR/$2.service* 2> /dev/null)
+	
+	for i in $(grep -l "<type>$stype</type>" $AVAHI_SRV_DIR/*.service*); do
+		sext=${i##*.}
+		sname=$(basename $i)
+		sname=${sname%%.*}
+		
+		if test "$1" = "add" -a "$sext" = "service-"; then
+				mv $AVAHI_SRV_DIR/$sname.service- $AVAHI_SRV_DIR/$sname.service
+		elif test "$1" = "remove" -a "$sext" = "service"; then
+				mv $AVAHI_SRV_DIR/$sname.service $AVAHI_SRV_DIR/$sname.service-
+		fi
+	done
+}
+
+INETD_CONF=/etc/inetd.conf
+
+# $1-service [$2-program]
+check_inetd() {
+	if grep -q "^$1[[:space:]].*$2" $INETD_CONF; then
+		echo "$NAME: $1 is currently managed through the inetd service."
+		return 0
+	fi
+	return 1
+}
+
+# to use at start
+# start needed service if they are not running
+require() {
+	name=$1; shift
+	for i in $*; do
+		if test $name != $i; then # don't recursively start services that mark itself as 'required'
+			if ! rc$i status >& /dev/null; then
+				if ! rc$i start; then
+					echo \'$name\' can\'t be started, as \'$i\' is needed and can\'t be started.
+					exit 1
+				fi
+			fi
+		fi
+	done
+}
+
+# to use at stop
+# don't stop if it is required by running services
+requiredby() {
+# relies on REQUIRE (or 'require' direct call) on dependants
+	srv=${0#*S??} # current service name. Beware on services such as dbus/dbus-daemon
+	for i in $(grep -lE "(require |^REQUIRE=).*$srv" /etc/init.d/S*); do
+		dep=${i#*S??} # service that depends on this service
+		if test "$dep" = "$1"; then
+			exit 0 # don't stop services that marked themself as 'required'
+		fi
+		if rc$dep status >& /dev/null; then
+			echo \'$srv\' can\'t be stopped, as it is needed by \'$dep\' which is running.
+			exit 1
+		fi
+	done
+}
+
+# to use at stop, see if required services are running and try to stop them
+# if they are not required by other running service
+# $1 caller name, $* services to stop
+stoprequired() {
+	name=$1; shift
+	for i in $*; do
+		if rc$i status >& /dev/null; then
+			rc$i stop >& /dev/null 
+		fi
+	done
+}
+
+# to use at start, see if competing services are running
+# $1 caller name, $* services to check
+excludedby() {
+	name=$1; shift
+	for i in $*; do
+		if rc$i status >& /dev/null; then
+			echo \'$name\' cant be started, as it conflicts with \'$i\', which is running.
+			exit 1
+		fi
+	done
+}
+
+status() {
+	STOP_ARGS="$1"
+	if test -n "$RC_PIDFILE"; then
+		STOP_ARGS="--pidfile $RC_PIDFILE"
+		RC_START_STOP=""
+	fi
+
+	if start-stop-daemon -K -t -q $RC_START_STOP $STOP_ARGS; then
+		echo "$1 running"
+		return 0
+	else
+		echo "$1 stopped"
+		return 1
+	fi
+}
+
+# $1-crypt|linear
+dmstatus() {
+	if ! lsmod | grep -q ^dm_mod; then
+		return 1
+	fi
+	dmout=$(dmsetup ls --target $1)
+	if test -z "$dmout" -o "$dmout" = "No devices found"; then
+		return 1
+	else
+		for i in $dmout; do
+			if test "$(dmsetup info $i | awk '/State/{print $2}')" = "ACTIVE"; then
+				return 0
+			fi
+		done
+	fi
+}
+
+omsg() {
+	if test $1 = 0; then
+		echo "OK."
+	elif test -n "$2"; then
+		echo -e "Fail: $2"
+	else
+		echo "Fail."
+	fi
+	return $1	
+}
+
+# some services need to create its own user/group
+check_user() {
+	if test -n "$RC_USER" -a -n "$RC_USERN" -a -n "$RC_GROUP" -a -n "$RC_GROUPN" -a -n "$RC_DESC"; then
+		srva=$(basename $0); srv=${srva:3}
+		user_home=/var/lib/$RC_USER
+		if ! id $RC_USER >& /dev/null; then
+			addgroup -S -g $RC_GROUPN $RC_GROUP >& /dev/null
+			adduser -S -g "$RC_DESC" -G $RC_GROUP -u $RC_USERN -h $user_home $RC_USER >& /dev/null
+		fi
+		if ! test -d $user_home; then
+			mkdir -p $user_home
+			chown -R $RC_USER:$RC_GROUP $user_home
+		fi
+		if test $# != 0; then
+			chown -R $RC_USER:$RC_GROUP $*
+		fi
+	fi
+}
+
+start() {
+	if test -n "$EXCLUDEDBY"; then
+		excludedby $1 $EXCLUDEDBY
+	fi
+
+	if test -n "$REQUIRE"; then
+		require $1 $REQUIRE
+	fi
+
+	if test -n "$RC_PIDFILE"; then
+		ARGS_PID="--pidfile $RC_PIDFILE"	
+		if test -n "$RC_MAKE_PID"; then
+			ARGS_PID="--make-pidfile $ARGS_PID"
+		fi
+	fi
+
+	echo -n "Starting $(basename $1): "
+	if test -n "$RC_START_CMD"; then
+		$RC_START_CMD
+	else
+		start-stop-daemon -S -q -o $RC_START_BG $ARGS_PID -x $*
+	fi
+	omsg $?
+}
+
+stop() {
+#	if test -n "$REQUIREDBY"; then
+#		requiredby $1 $REQUIREDBY
+#	fi
+
+	requiredby $1
+
+	sig=""
+	echo -n "Stopping $(basename $1): "
+	if test -n "$2"; then
+		sig="-s $2"
+	fi
+
+	STOP_ARGS="$1"
+	if test -n "$RC_PIDFILE"; then
+		STOP_ARGS="--pidfile $RC_PIDFILE"
+		RC_START_STOP=""
+	fi
+
+	if test -n "$RC_STOP_CMD"; then
+		$RC_STOP_CMD
+	else
+		start-stop-daemon -K -q -o $sig $RC_START_STOP $STOP_ARGS
+	fi
+	st=$?
+
+	if test -n "$REQUIRE"; then
+		cnt=60
+		while status $1 >& /dev/null; do
+			usleep 200000
+			if test $((--cnt)) = "0"; then
+				echo -n "FORCE "
+				stop $1 9
+			fi
+		done
+		stoprequired $1 $REQUIRE
+	fi
+
+	if test -n "$RC_PIDFILE" -a "$st" = 0; then
+		rm -f $RC_PIDFILE
+	fi
+
+	omsg $st
+}
+
+restart() {
+	echo "Restarting $(basename $1): "
+	sh $0 stop
+
+	STOP_ARGS="$1"
+	if test -n "$RC_PIDFILE"; then
+		STOP_ARGS="--pidfile $RC_PIDFILE"
+		RC_START_STOP=""
+	fi
+	while start-stop-daemon -K -t -q $RC_START_STOP $STOP_ARGS; do usleep 200000; done
+	usleep 200000
+
+	sh $0 start
+}
+
+reload() {
+	echo -n "Reloading $(basename $1): "
+	if test -z "$2"; then
+		sig=SIGHUP
+	else
+		sig=$2
+	fi
+	start-stop-daemon -K -q -s $sig $RC_START_STOP $1
+	omsg $?
+}
+
+usage() {
+	echo "Usage: $1 {$2}"
+	exit 1
+}

@@ -1,0 +1,9 @@
+Package: msmtp
+Description: A SMTP (Simple Mail Transfer Program) client.
+Version: 1.6.8-2
+Depends: ipkg, openssl
+Architecture: arm
+Priority: optional
+Section: admin
+Source: http://msmtp.sourceforge.net
+Maintainer: jcard

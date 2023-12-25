@@ -1,0 +1,5 @@
+#!/bin/sh
+
+if ! grep -q ^Certificates /usr/www/cgi-bin/Setup.men; then
+	echo "Certificates|certs.cgi" >> /usr/www/cgi-bin/Setup.men
+fi

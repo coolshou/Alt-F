@@ -1,0 +1,26 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html><head profile="http://www.w3.org/2005/10/profile">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="icon" type="image/png" href="dns-323.png">
+<title>Users and Groups Help</title>
+</head><body>
+
+<center><h2>Users and Groups Setup Help</h2></center>
+
+Users and Groups (of users) are a key concept in administering and using Linux.<br>
+Files and directories belong to a user, and even processes (running programs) run on behalf of a user, see <a href="perms_hlp.html">Directory Owner and Group and Access Permissions</a> and <a href="newuser_hlp.html">New User Setup</a> for further info.<br>
+
+<p>In this page you can create new users and groups and assign users to one or more groups.
+
+<p>In the left <strong>Users</strong> section, you have a list of the existing users, and selecting one of them you can see to what groups they belong to.<br>
+You can also create a new user, change its password or delete it.<br>
+To create a new user, fill their name in the <strong>User Name</strong> field (or clear it) first. When a new user is created it will belong by default to the <em>users</em> group and a directory, named after their name, will be created for them; this directory is its <em>home directory</em>, and only this user (and the <em>root</em> user) have permissions to access it by default.<br>
+Deleting a user does not delete their home directory if it is not empty.<br>
+
+<p>In the right <strong>Groups</strong> section, you have a list of the existing groups, and selecting one of them you can see what users belong to it.<br>
+You can also create a new group, filling its name in the <strong>Group Name</strong> field, or delete an existing group if it is not the main group of an existing user.<br>
+
+<p>In the lower <strong>Users and Groups</strong> section, you can add or delete a selected user to or from a selected group.
+<br>
+<br><button type=button onclick="history.back()">Back</button></body>
+</html>

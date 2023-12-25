@@ -1,0 +1,157 @@
+#!/bin/sh
+
+exec >& /dev/console
+
+echo "rcE: Starting reboot/shutdown"
+
+board=$(cat /tmp/board)
+
+echo "rcE: stopping all services"
+# Stop all executable init scripts in /etc/init.d
+# executing them in reverse numerical order.
+rcall stop
+
+echo "rcE: saving date and time to RTC"
+hwclock -wu
+
+# terminate dns320 daemons
+if echo "$board" | grep -qE "DNS-320|DNS-327"; then
+	sed -i 's/^#*[[:space:]]*\(.*dns320.*\)/#\1/' /etc/inittab
+	kill -1 1
+fi
+
+# detach mtd5 from ubi (for loadsave_settings)
+if echo "$board" | grep -q "DNS-327"; then
+	ubidetach -p /dev/mtd5
+fi
+
+# wait for services to stop
+sleep 5
+
+# force kill resilient processes
+killall5 -KILL
+
+sleep 1
+
+if aufs.sh -s >& /dev/null ; then
+	echo "rcE: unmounting aufs"
+	altf=$(readlink -f /Alt-F/)
+	aufs.sh -u
+	# remove inittab, otherwise when aufs is mounted rcS mods related with dns320 are undone
+	rm -f $altf/etc/inittab
+fi
+
+# remove sqimage as an aufs branch. not really needed, its read-only
+if mount -t squashfs | grep -q /rootmnt/sqimage; then
+	echo "rcE: unmounting sqimage"
+	if aufs.sh -l | grep -q /rootmnt/sqimage; then
+		mount -o remount,del=/rootmnt/sqimage /
+	fi
+	umount /rootmnt/sqimage
+fi
+
+echo "rcE: unmounting or remounting read-only all mounted filesystems"
+for i in nfs cifs iso9660 davfs ext2 ext3 ext4 btrfs vfat ntfs fuseblk; do
+	umount -t $i -rf -a 
+done
+
+echo "rcE: unmouting tmpfs /tmp"
+umount /tmp
+
+echo "rcE: stopping swap"
+for i in $(cat /proc/swaps | grep -o '/dev/.* '); do
+	swapoff $i
+done
+
+echo "rcE: stopping RAID"
+for i in /dev/md[0-9]; do
+  if test -b $i; then
+	mdadm --stop $i
+  fi
+done
+
+echo "rcE: ejecting all drives"
+# umount attached disks/partitions, simulating kernel hotplug events
+# hot.sh removes branch from aufs (if dir /Alt-F belongs to device)
+# just a last resort, as this is already done above
+for i in /dev/sd[a-z]; do
+  if test -b $i; then
+	eject $(basename $i)
+  fi
+done
+
+echo "rcE: still mounted filesystems"
+echo "------------------------------"
+mount
+echo "------------------------------"
+
+echo "rcE: still running processes"
+echo "------------------------------"
+ps -opid,ppid,pgid,user,group,tty,vsz,stat,rss,args
+echo "------------------------------"
+
+#echo "rcE: bringing network down"
+# FIXME: on certain kernels, on reboot the DNS-320L u-boot don't turn network on
+#ifconfig eth0 down
+
+# do a kexec to a new kernel/rootfs instead of a reboot
+if test -f /boot/zImage -o -f /boot/rootfs.arm.* -o -f /boot/.kexec; then
+	cd /boot
+
+	if grep -q 'Hardware.*321/323' /proc/cpuinfo; then
+		orion=y
+	fi
+
+	# no kernel image, use flashed kernel
+	if ! test -f zImage; then
+		if test -n "$orion"; then 
+			dd if=/dev/mtdblock2 of=zImage bs=64 skip=1
+		else
+			nanddump -q /dev/mtd1 | dd of=zImage bs=64 skip=1
+		fi
+	fi
+	
+	initrfs=$(ls rootfs.arm.* 2> /dev/null)
+	# no rootfs, use flashed rootfs
+	if ! test -f "$initrfs"; then
+		if test -n "$orion"; then
+			dd if=/dev/mtdblock3 of=rootfs.arm.sqmtd bs=64 skip=1
+		else
+			nanddump -q /dev/mtd2 | dd of=rootfs.arm.sqmtd bs=64 skip=1
+		fi
+		initrfs=rootfs.arm.sqmtd
+	fi
+
+	if test -s "cmdline"; then
+		cmdline=$(cat cmdline);
+	elif test "$initrfs" = "rootfs.arm.cpio-sq.lzma"; then
+		cmdline="console=ttyS0,115200 squashcpio"
+	else # squashrd
+		tftpargs=$(sed -n 's/.*tftpargs=\([.:[:digit:]]*\).*/\1/p' /proc/cmdline)
+		if test -n "$tftpargs"; then
+			tftpargs="tftpargs=$tftpargs"
+		fi
+		cmdline="console=ttyS0,115200 root=/dev/ram0 init=/init earlyprintk kexecmode $tftpargs"
+	fi
+
+	if test -f /proc/atags; then
+		atags="--atags"
+	fi
+	dtb=$(ls *.dtb 2> /dev/null)
+	if test -n "$dtb"; then
+		atags="--dtb=$dtb"
+	fi
+
+	if test -s zImage -a -n "$initrfs"; then
+		mount / -o remount,ro
+		echo "rcE: starting a new kernel and root filesystem"
+		kexec -l zImage --command-line="$cmdline" --initrd="$initrfs" $atags && kexec -e
+	fi
+fi
+
+mount / -o remount,ro
+echo "rcE: Poweroff NOW!"
+
+if test -f /boot/.poweroff; then
+	dns320l-daemon -x DeviceShutdown 3
+fi

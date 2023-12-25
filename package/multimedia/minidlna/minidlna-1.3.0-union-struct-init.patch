@@ -1,0 +1,25 @@
+--- minidlna-1.3.0/event.h	2020-11-24 18:53:50.000000000 +0000
++++ minidlna-1.3.0/event.h	2021-05-15 19:09:02.952565410 +0100
+@@ -25,6 +25,7 @@
+ typedef	void	event_vnode_process_t(struct event *, u_int);
+ #endif
+ 
++/* jc: gcc-4.3.3 can't initialize the union, so drop it as HAVE_KQUEUE is not defined for linux
+ struct event {
+ 	int		 fd;
+ 	int		 index;
+@@ -37,6 +38,14 @@
+ 	};
+ 	void		*data;
+ };
++*/
++struct event {
++	int		 fd;
++	int		 index;
++	event_t		 rdwr;
++	event_process_t		*process;
++	void		*data;
++};
+ 
+ typedef	int	event_module_add_t(struct event *);
+ typedef	int	event_module_del_t(struct event *, int flags);

@@ -1,0 +1,4 @@
+Add|\"\" onclick=\"return addbookmark()\"
+Remove|\"\" onclick=\"return rmbookmark()\"
+Remove All|\"\" onclick=\"return rmall()\"
+<hr>|#

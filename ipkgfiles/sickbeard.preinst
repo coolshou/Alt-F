@@ -1,0 +1,21 @@
+#!/bin/sh
+
+DAEMON=rcsickbeard
+
+SBCONFF=/etc/sickbeard.conf # old config
+SBCONFD=/etc/sickbeard
+
+if test -e /sbin/$DAEMON; then
+	$DAEMON stop
+
+	for i in $(seq 1 30); do
+		if ! $DAEMON status >& /dev/null; then break; fi
+		sleep 1
+	done
+fi
+
+if test -f $SBCONFF; then
+	mkdir -p $SBCONFD
+	cp $SBCONFF $SBCONFD
+fi
+

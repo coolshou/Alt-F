@@ -1,0 +1,9 @@
+Package: e2fsprogs-extra
+Description: The EXT2/3/4 file system extra utilities
+Version: 1.42.13
+Depends: ipkg, e2fsprogs
+Architecture: arm
+Priority: optional
+Section: admin
+Source: http://e2fsprogs.sourceforge.net/
+Maintainer: jcard
